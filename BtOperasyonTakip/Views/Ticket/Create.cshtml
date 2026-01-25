@@ -1,0 +1,107 @@
+﻿@{
+    Layout = "_Layout";
+    ViewData["Title"] = "Yeni Ticket Oluştur";
+}
+
+@model BtOperasyonTakip.Models.Ticket
+
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h2 class="page-title">🆕 Yeni Ticket Oluştur</h2>
+        </div>
+    </div>
+
+    <div class="card shadow">
+        <div class="card-body">
+            <form asp-action="Create" method="post">
+                <div class="row">
+                    <div class="col-md-12 mb-3">
+                        <label asp-for="FirmaAdi" class="form-label fw-bold">
+                            🏢 Firma Adı <span class="text-danger">*</span>
+                        </label>
+                        <input asp-for="FirmaAdi" class="form-control" placeholder="Firma adı" required />
+                        <span asp-validation-for="FirmaAdi" class="text-danger"></span>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-12 mb-3">
+                        <label asp-for="MusteriWebSitesi" class="form-label fw-bold">
+                            🌐 Müşteri Web Sitesi <span class="text-danger">*</span>
+                        </label>
+                        <input asp-for="MusteriWebSitesi" class="form-control" placeholder="https://example.com" required />
+                        <span asp-validation-for="MusteriWebSitesi" class="text-danger"></span>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label asp-for="YazilimciAdi" class="form-label fw-bold">
+                            👤 Yazılımcı Adı <span class="text-danger">*</span>
+                        </label>
+                        <input asp-for="YazilimciAdi" class="form-control" placeholder="Adı" required />
+                        <span asp-validation-for="YazilimciAdi" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label asp-for="YazilimciSoyadi" class="form-label fw-bold">
+                            👤 Yazılımcı Soyadı <span class="text-danger">*</span>
+                        </label>
+                        <input asp-for="YazilimciSoyadi" class="form-control" placeholder="Soyadı" required />
+                        <span asp-validation-for="YazilimciSoyadi" class="text-danger"></span>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label asp-for="Mail" class="form-label fw-bold">
+                            📧 Mail Adresi <span class="text-danger">*</span>
+                        </label>
+                        <input asp-for="Mail" type="email" class="form-control" placeholder="ornek@mail.com" required />
+                        <span asp-validation-for="Mail" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label asp-for="IrtibatNumarasi" class="form-label fw-bold">
+                            📞 İrtibat Numarası <span class="text-danger">*</span>
+                        </label>
+                        <input asp-for="IrtibatNumarasi" class="form-control" placeholder="+90 5XX XXX XXXX" required />
+                        <span asp-validation-for="IrtibatNumarasi" class="text-danger"></span>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-12 mb-3">
+                        <label asp-for="TeknolojiBilgisi" class="form-label fw-bold">
+                            💻 Teknoloji Bilgisi <span class="text-muted">(Opsiyonel - Operasyon tarafından seçilecek)</span>
+                        </label>
+                        <input asp-for="TeknolojiBilgisi" class="form-control" placeholder="Boş bırakabilirsiniz, operasyon onaylarken seçecektir" />
+                        <span asp-validation-for="TeknolojiBilgisi" class="text-danger"></span>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-12 mb-3">
+                        <label asp-for="Aciklama" class="form-label fw-bold">
+                            📝 Açıklama (Opsiyonel)
+                        </label>
+                        <textarea asp-for="Aciklama" class="form-control" rows="4" placeholder="Ticket ile ilgili ek bilgiler..."></textarea>
+                        <span asp-validation-for="Aciklama" class="text-danger"></span>
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-circle"></i> Kaydet
+                    </button>
+                    <a asp-action="Index" class="btn btn-secondary">
+                        <i class="bi bi-arrow-left"></i> Geri
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

@@ -1,0 +1,586 @@
+﻿@model BtOperasyonTakip.Models.DashboardViewModel
+@{
+    ViewData["Title"] = "Ana Sayfa | BT Operasyon Takip";
+}
+
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css" />
+<link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.bootstrap5.min.css" />
+
+<style>
+    body {
+        font-family: 'Poppins', sans-serif;
+        background: linear-gradient(180deg, #f6f9ff 0%, #eaf1ff 100%);
+        min-height: 100vh;
+    }
+
+    .welcome-bar {
+        background: linear-gradient(90deg, #0056d6, #007bff);
+        color: #fff;
+        border-radius: 12px;
+        padding: 1rem 1.5rem;
+        margin-bottom: 1.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    }
+
+        .welcome-bar h5 {
+            margin: 0;
+            font-weight: 600;
+        }
+
+        .welcome-bar .sub {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+    .stat-card {
+        border: none;
+        border-radius: 0.75rem;
+        color: #fff;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        position: relative;
+        overflow: hidden;
+        padding: 0.75rem !important;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: -50%;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.1);
+            transform: skewX(-20deg);
+            transition: right 0.5s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+            .stat-card:hover::before {
+                right: 100%;
+            }
+
+        .stat-card .card-body {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            padding: 0 !important;
+        }
+
+        .stat-card h6 {
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+            opacity: 0.95;
+            letter-spacing: 0.3px;
+        }
+
+        .stat-card h2 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            margin: 0.25rem 0;
+            letter-spacing: -0.5px;
+            line-height: 1;
+        }
+
+        .stat-card small {
+            font-size: 0.7rem;
+            opacity: 0.8;
+            font-weight: 500;
+            display: none;
+        }
+
+        .stat-card:hover small {
+            display: block;
+        }
+
+    .chart-card {
+        border-radius: 1rem;
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+        background: #fff;
+        border: 1px solid rgba(0, 0, 0, 0.05);
+    }
+
+    .chart-box {
+        height: 260px;
+        max-height: 260px;
+    }
+
+    table.dataTable thead {
+        background: #eaf0ff;
+        color: #003366;
+    }
+
+    @@keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .animate-up {
+        animation: fadeInUp 0.7s ease forwards;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        color: #6c757d;
+    }
+
+        .empty-state i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+</style>
+
+<div class="container-fluid mt-4 animate-up">
+
+    <!-- Hoş Geldin Barı -->
+    <div class="welcome-bar">
+        <div>
+            <h5>👋 Hoş geldin, <strong>@(User.Identity?.Name ?? "Kullanıcı")</strong>!</h5>
+            <div class="sub" id="motivasyonMetni"></div>
+        </div>
+        <div id="saatTarih"></div>
+    </div>
+
+    <!-- Müşteri İstatistikleri -->
+    <div class="row g-2 mb-4">
+        <div class="col-lg-2 col-md-2 col-sm-6 col-6">
+            <div class="card stat-card bg-primary text-center">
+                <div class="card-body">
+                    <h6>Toplam Müşteri</h6>
+                    <h2>@Model.ToplamMusteri</h2>
+
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-2 col-md-2 col-sm-6 col-6">
+            <div class="card stat-card bg-success text-center">
+                <div class="card-body">
+                    <h6>Aktif Müşteri</h6>
+                    <h2>@Model.AktifMusteri</h2>
+
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-2 col-md-2 col-sm-6 col-6">
+            <div class="card stat-card bg-secondary text-center">
+                <div class="card-body">
+                    <h6>Pasif Müşteri</h6>
+                    <h2>@Model.PasifMusteri</h2>
+
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-2 col-md-2 col-sm-6 col-6">
+            <div class="card stat-card bg-secondary text-center">
+                <div class="card-body">
+                    <h6>⏳ Onay Bekleyen</h6>
+                    <h2>@Model.TicketOnaybekleniyor</h2>
+
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-2 col-md-2 col-sm-6 col-6">
+            <div class="card stat-card bg-secondary text-center">
+                <div class="card-body">
+                    <h6>✅ Onaylanan</h6>
+                    <h2>@Model.TicketOnaylandi</h2>
+
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-2 col-md-2 col-sm-6 col-6">
+            <div class="card stat-card bg-info text-center">
+                <div class="card-body">
+                    <h6>Açık </h6>
+                    <h2>@(Model.JiraAktif + Model.JiraBeklemede)</h2>
+
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Grafikler -->
+    <div class="row g-3 mb-4 equalize align-items-stretch">
+        <div class="col-md-12">
+            <div class="card chart-card p-3 h-100">
+                <h5 class="text-primary mb-3">📈 Aylık Müşteri Artışı</h5>
+                <div class="chart-box"><canvas id="customerChart"></canvas></div>
+            </div>
+        </div>
+       
+    </div>
+
+    <!-- Müşteriler Tablosu -->
+    <div class="card chart-card mb-4">
+        <div class="card-header bg-light fw-bold text-primary">
+            📋 Kayıtlı Müşteriler (@Model.Musteriler.Count)
+        </div>
+        <div class="card-body">
+            @if (!Model.Musteriler.Any())
+            {
+                <div class="empty-state">
+                    <i class="bi bi-inbox"></i>
+                    <h5>Müşteri Bulunmuyor</h5>
+                    <p>Henüz müşteri kaydı yapılmamıştır. Ticketları onayladığınızda otomatik olarak müşteri kaydı oluşturulacaktır.</p>
+                </div>
+            }
+            else
+            {
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <div class="input-group">
+                            <span class="input-group-text bg-light"><i class="fas fa-search"></i></span>
+                            <input type="search" id="firmaSearch" class="form-control" placeholder="Firma adına göre ara...">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table id="musteriTable" class="table table-striped table-bordered align-middle">
+                        <thead class="table-secondary">
+                            <tr>
+                                <th>ID</th>
+                                <th>Firma</th>
+                                <th>Yetkili</th>
+                                <th>Telefon</th>
+                                <th>Site URL</th>
+                                <th>Teknoloji</th>
+                                <th>Durum</th>
+                                <th>Talep Sahibi</th>
+                                <th>Kayıt Tarihi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var m in Model.Musteriler.OrderByDescending(x => x.KayitTarihi))
+                            {
+                                <tr>
+                                    <td><strong>@m.MusteriID</strong></td>
+                                    <td>@m.Firma</td>
+                                    <td>@m.FirmaYetkilisi</td>
+                                    <td>@m.Telefon</td>
+                                    <td>
+                                        @if (!string.IsNullOrWhiteSpace(m.SiteUrl))
+                                        {
+                                            <a href="@m.SiteUrl" target="_blank" class="text-decoration-none">@(m.SiteUrl.Length > 25 ? m.SiteUrl.Substring(0, 25) + "..." : m.SiteUrl)</a>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">-</span>
+                                        }
+                                    </td>
+                                    <td>@m.Teknoloji</td>
+                                    <td>
+                                        @if (m.Durum?.ToLower() == "aktif")
+                                        {
+                                            <span class="badge bg-success">Aktif</span>
+                                        }
+                                        else if (m.Durum?.ToLower() == "pasif")
+                                        {
+                                            <span class="badge bg-secondary">Pasif</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-warning text-dark">@m.Durum</span>
+                                        }
+                                    </td>
+                                    <td>@m.TalepSahibi</td>
+                                    <td>@(m.KayitTarihi?.ToString("dd.MM.yyyy") ?? "-")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Ticketlar Tablosu -->
+    <div class="card chart-card mb-4">
+        <div class="card-header bg-light fw-bold text-primary">
+            🎟️ Sistem Ticketları (@Model.Tickets.Count)
+        </div>
+        <div class="card-body">
+            @if (!Model.Tickets.Any())
+            {
+                <div class="empty-state">
+                    <i class="bi bi-ticket"></i>
+                    <h5>Ticket Bulunmuyor</h5>
+                    <p>Henüz hiç ticket oluşturulmamıştır.</p>
+                </div>
+            }
+            else
+            {
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <div class="input-group">
+                            <span class="input-group-text bg-light"><i class="fas fa-search"></i></span>
+                            <input type="search" id="ticketSearch" class="form-control" placeholder="Yazılımcı veya web site ara...">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table id="ticketTable" class="table table-striped table-bordered align-middle">
+                        <thead class="table-secondary">
+                            <tr>
+                                <th>#</th>
+                                <th>Müşteri Web Sitesi</th>
+                                <th>Yazılımcı</th>
+                                <th>📧 Mail</th>
+                                <th>Teknoloji</th>
+                                <th>Durum</th>
+                                <th>Oluşturan</th>
+                                <th>Tarih</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var ticket in Model.Tickets.OrderByDescending(x => x.OlusturmaTarihi))
+                            {
+                                var statusBadgeClass = ticket.Durum switch
+                                {
+                                    "Onay Bekleniyor" => "bg-warning text-dark",
+                                    "Onaylandi" => "bg-success",
+                                    "Reddedildi" => "bg-danger",
+                                    _ => "bg-secondary"
+                                };
+
+                                <tr>
+                                    <td><strong>@ticket.Id</strong></td>
+                                    <td>
+                                        <a href="@ticket.MusteriWebSitesi" target="_blank" class="text-decoration-none">
+                                            @(ticket.MusteriWebSitesi.Length > 30 ? ticket.MusteriWebSitesi.Substring(0, 30) + "..." : ticket.MusteriWebSitesi)
+                                        </a>
+                                    </td>
+                                    <td>@ticket.YazilimciAdi @ticket.YazilimciSoyadi</td>
+                                    <td>
+                                        @if (!string.IsNullOrWhiteSpace(ticket.Mail))
+                                        {
+                                            <a href="mailto:@ticket.Mail" class="text-decoration-none">
+                                                <i class="bi bi-envelope"></i> @(ticket.Mail.Length > 20 ? ticket.Mail.Substring(0, 20) + "..." : ticket.Mail)
+                                            </a>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">-</span>
+                                        }
+                                    </td>
+                                    <td><span class="badge bg-info">@ticket.TeknolojiBilgisi</span></td>
+                                    <td><span class="badge @statusBadgeClass">@ticket.Durum</span></td>
+                                    <td>@ticket.OlusturanKullaniciAdi</td>
+                                    <td>@ticket.OlusturmaTarihi.ToString("dd.MM.yyyy HH:mm")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+
+</div>
+
+@section Scripts {
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.bootstrap5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.print.min.js"></script>
+
+    <script>
+        // 🕓 Saat ve mesaj
+        function guncelleSaat() {
+            const now = new Date();
+            $("#saatTarih").html(`🕓 ${now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })} | 📅 ${now.toLocaleDateString('tr-TR')}`);
+        }
+        setInterval(guncelleSaat, 1000);
+        guncelleSaat();
+        $("#motivasyonMetni").text("Hoşgeldiniz!");
+
+        // 📊 Chart.js - Müşteri Aylık
+        const customerChart = new Chart(document.getElementById('customerChart'), {
+            type: 'line',
+            data: {
+                labels: @Html.Raw(Json.Serialize(Model.AyEtiketleri)),
+                datasets: [{
+                    label: 'Yeni Müşteriler',
+                    data: @Html.Raw(Json.Serialize(Model.AylikMusteriSayilari)),
+                    borderColor: '#007bff',
+                    backgroundColor: 'rgba(0,123,255,0.15)',
+                    fill: true,
+                    tension: 0.4,
+                    borderWidth: 3
+                }]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                }
+            }
+        });
+
+        // Müşteri Durum Doughnut
+        new Chart(document.getElementById('customerStatusChart'), {
+            type: 'doughnut',
+            data: {
+                labels: ['Aktif', 'Pasif'],
+                datasets: [{
+                    data: [@Model.AktifMusteri, @Model.PasifMusteri],
+                    backgroundColor: ['#28a745', '#6c757d'],
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                },
+                cutout: '70%'
+            }
+        });
+
+        // Jira Durum Doughnut
+        new Chart(document.getElementById('jiraStatusChart'), {
+            type: 'doughnut',
+            data: {
+                labels: ['Beklemede', 'Aktif', 'Tamamlandı'],
+                datasets: [{
+                    data: [@Model.JiraBeklemede, @Model.JiraAktif, @Model.JiraTamamlandi],
+                    backgroundColor: ['#ffc107', '#0d6efd', '#20c997'],
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                },
+                cutout: '70%'
+            }
+        });
+
+        // Ticket Durum Bar Grafiği
+        new Chart(document.getElementById('ticketStatusChart'), {
+            type: 'bar',
+            data: {
+                labels: ['Onay Bekleyen', 'Onaylanan', 'Reddedilen'],
+                datasets: [{
+                    label: 'Ticket Sayısı',
+                    data: [@Model.TicketOnaybekleniyor, @Model.TicketOnaylandi, @Model.TicketReddedildi],
+                    backgroundColor: ['#ffc107', '#28a745', '#dc3545'],
+                    borderColor: ['#ff9800', '#20c997', '#c82333'],
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+
+        // 📋 DataTable - Müşteriler (sadece veri varsa)
+        @if (Model.Musteriler.Any())
+        {
+                    <text>
+                const table = $('#musteriTable').DataTable({
+                    order: [[8, "desc"]],
+                    responsive: true,
+                    dom: 'Bfrtip',
+                    buttons: [
+                        { extend: 'excelHtml5', text: '📗 Excel', className: 'btn btn-success btn-sm' },
+                        { extend: 'pdfHtml5', text: '📕 PDF', className: 'btn btn-danger btn-sm' },
+                        { extend: 'print', text: '🖨️ Yazdır', className: 'btn btn-primary btn-sm' }
+                    ],
+                    language: {
+                        url: "https://cdn.datatables.net/plug-ins/1.13.7/i18n/tr.json"
+                    }
+                });
+
+                // 🔍 Müşteri firması arama
+                $('#firmaSearch').on('keyup', function () {
+                    table.column(1).search(this.value, true, false).draw();
+                });
+
+                $('#firmaSearch').on('keypress', function (e) {
+                    if (e.which === 13) e.preventDefault();
+                });
+                    </text>
+        }
+
+        // 📋 DataTable - Ticketlar (sadece veri varsa)
+        @if (Model.Tickets.Any())
+        {
+                    <text>
+                const ticketTable = $('#ticketTable').DataTable({
+                    order: [[7, "desc"]],
+                    responsive: true,
+                    dom: 'Bfrtip',
+                    buttons: [
+                        { extend: 'excelHtml5', text: '📗 Excel', className: 'btn btn-success btn-sm' },
+                        { extend: 'pdfHtml5', text: '📕 PDF', className: 'btn btn-danger btn-sm' },
+                        { extend: 'print', text: '🖨️ Yazdır', className: 'btn btn-primary btn-sm' }
+                    ],
+                    language: {
+                        url: "https://cdn.datatables.net/plug-ins/1.13.7/i18n/tr.json"
+                    }
+                });
+
+                // 🔍 Ticket arama
+                $('#ticketSearch').on('keyup', function () {
+                    ticketTable.column(1).search(this.value, true, false).draw();
+                });
+
+                $('#ticketSearch').on('keypress', function (e) {
+                    if (e.which === 13) e.preventDefault();
+                });
+                    </text>
+        }
+    </script>
+}

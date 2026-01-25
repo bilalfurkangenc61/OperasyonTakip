@@ -1,0 +1,201 @@
+﻿@model IEnumerable<BtOperasyonTakip.Models.Detay>
+
+<div id="detayContainer" class="detay-container" data-musteri-id="@ViewBag.MusteriID">
+
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">📋 Görüşme Detayları</h5>
+        </div>
+
+        <div class="card-body">
+
+            <!-- ✔ Yeni Detay Ekleme Formu -->
+            <form id="yeniDetayForm" method="post">
+                <input type="hidden" name="MusteriID" value="@ViewBag.MusteriID" />
+
+                <div class="row g-3 mb-4 p-3 bg-light rounded">
+                    <div class="col-md-2">
+                        <label class="form-label">Tarih</label>
+                        <input type="date" name="Tarih" class="form-control" required />
+                    </div>
+
+                    <div class="col-md-2">
+                        <label class="form-label">Görüşülen</label>
+                        <input type="text" name="Gorusulen" class="form-control" required />
+                    </div>
+
+                    <div class="col-md-2">
+                        <label class="form-label">Kekleyen</label>
+                        <input type="text" name="Kekleyen" class="form-control" />
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label">Açıklama</label>
+                        <textarea name="Aciklama" class="form-control" rows="1" required></textarea>
+                    </div>
+
+                    <div class="col-md-2">
+                        <label class="form-label">&nbsp;</label>
+                        <button type="submit" class="btn btn-success w-100">➕ Ekle</button>
+                    </div>
+                </div>
+            </form>
+
+            <!-- ✔ Detay Listesi -->
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Tarih</th>
+                            <th>Görüşülen</th>
+                            <th>Açıklama</th>
+                            <th>Kekleyen</th>
+                            <th>İşlem</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var detay in Model)
+                        {
+                            <tr>
+                                <td>@detay.Tarih.ToString("yyyy-MM-dd")</td>
+                                <td>@detay.Gorusulen</td>
+                                <td>@detay.Aciklama</td>
+                                <td>@detay.Kekleyen</td>
+
+                                <td>
+                                    <button type="button" class="btn btn-sm btn-warning edit-detay-btn" data-id="@detay.DetayID">✏️</button>
+                                    <button type="button" class="btn btn-sm btn-danger delete-detay-btn" data-id="@detay.DetayID">❌</button>
+                                </td>
+                            </tr>
+                        }
+
+                        @if (!Model.Any())
+                        {
+                            <tr><td colspan="5" class="text-center text-muted">Henüz kayıt yok.</td></tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- ✔ DETAY DÜZENLEME MODAL -->
+<div class="modal fade" id="detayEditModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title">Detay Düzenle</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body">
+                <form id="detayEditForm">
+                    <input type="hidden" name="DetayID" id="editDetayID" />
+
+                    <div class="mb-3">
+                        <label>Tarih</label>
+                        <input type="date" name="Tarih" id="editTarih" class="form-control" required />
+                    </div>
+
+                    <div class="mb-3">
+                        <label>Görüşülen</label>
+                        <input type="text" name="Gorusulen" id="editGorusulen" class="form-control" required />
+                    </div>
+
+                    <div class="mb-3">
+                        <label>Kekleyen</label>
+                        <input type="text" name="Kekleyen" id="editKekleyen" class="form-control" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label>Açıklama</label>
+                        <textarea name="Aciklama" id="editAciklama" class="form-control"></textarea>
+                    </div>
+                </form>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Kapat</button>
+                <button type="button" class="btn btn-primary" id="saveEditBtn">Kaydet</button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+    // Aynı partial her yüklendiğinde handler tekrar eklenmesin diye: off().on()
+
+    // ✔ EKLEME
+    $(document)
+        .off('submit', '#yeniDetayForm')
+        .on('submit', '#yeniDetayForm', function (e) {
+            e.preventDefault();
+
+            const $form = $(this);
+            const formData = $form.serialize();
+
+            // Çift tıklama/çift submit engeli
+            const $btn = $form.find('button[type="submit"]');
+            $btn.prop('disabled', true);
+
+            $.post('/Detay/AddDetay', formData)
+                .done(function (html) {
+                    $("#detayContainer").html(html);
+                })
+                .always(function () {
+                    $btn.prop('disabled', false);
+                });
+        });
+
+    // ✔ SİLME
+    $(document)
+        .off('click', '.delete-detay-btn')
+        .on('click', '.delete-detay-btn', function () {
+            const id = $(this).data('id');
+            if (!confirm("Bu kayıt silinsin mi?")) return;
+
+            const musteriId = $(".detay-container").data("musteri-id");
+
+            $.ajax({
+                url: `/Detay/DeleteDetay/${id}`,
+                type: 'DELETE'
+            }).done(function () {
+                $("#detayContainer").load(`/Detay/GetDetaylar?musteriId=${musteriId}`);
+            });
+        });
+
+    // ✔ DÜZENLEME MODALINI AÇ
+    $(document)
+        .off('click', '.edit-detay-btn')
+        .on('click', '.edit-detay-btn', function () {
+            const id = $(this).data('id');
+
+            $.get(`/Detay/GetDetay/${id}`, function (detay) {
+                $("#editDetayID").val(detay.detayID);
+                $("#editTarih").val(detay.tarih.substring(0, 10));
+                $("#editGorusulen").val(detay.gorusulen);
+                $("#editKekleyen").val(detay.kekleyen);
+                $("#editAciklama").val(detay.aciklama);
+
+                const modal = new bootstrap.Modal(document.getElementById('detayEditModal'));
+                modal.show();
+            });
+        });
+
+    // ✔ MODAL KAYDET
+    $(document)
+        .off('click', '#saveEditBtn')
+        .on('click', '#saveEditBtn', function () {
+            const formData = $("#detayEditForm").serialize();
+            const musteriId = $(".detay-container").data("musteri-id");
+
+            $.post('/Detay/UpdateDetay', formData, function () {
+                $("#detayEditModal").modal('hide');
+                $("#detayContainer").load(`/Detay/GetDetaylar?musteriId=${musteriId}`);
+            });
+        });
+</script>

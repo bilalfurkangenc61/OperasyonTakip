@@ -1,0 +1,383 @@
+﻿@model BtOperasyonTakip.Models.JiraBoardViewModel
+@{
+    ViewData["Title"] = "İş Takip";
+}
+
+<div class="container">
+    <h4 class="mb-3">İş Ekle</h4>
+    <form asp-controller="Takip" asp-action="Create" method="post">
+        @Html.AntiForgeryToken()
+        <div class="row g-2">
+            <div class="col-md-2">
+                <label class="form-label">İş Adı</label>
+                <input name="JiraId" class="form-control" required />
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Talep Konusu</label>
+                <input name="TalepKonusu" class="form-control" required />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Talep Açan</label>
+                <input name="TalepAcan" class="form-control" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Takip Eden</label>
+                <input name="TakipEden" class="form-control" />
+            </div>
+        </div>
+        <div class="mt-2 d-flex gap-2">
+            <button type="submit" class="btn btn-primary">Ekle</button>
+            <span class="text-muted">Durum varsayılan: Beklemede</span>
+        </div>
+    </form>
+
+    <hr class="my-4" />
+
+    <div class="row align-items-end g-2 mb-3">
+        <div class="col-md-6">
+            <label for="taskSearch" class="form-label">Ara</label>
+            <input id="taskSearch" type="text" class="form-control" placeholder="JiraId / Konu / Açan / Takip Eden..." autocomplete="off" />
+        </div>
+        <div class="col-md-6 d-flex justify-content-md-end gap-2">
+            <button type="button" id="taskSearchClear" class="btn btn-outline-secondary">Temizle</button>
+            <div class="text-muted align-self-center small">
+                Eşleşen: <span id="taskSearchCount">0</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="row" id="board">
+        <div class="col-md-4">
+            <h5>Beklemede</h5>
+            <div class="dropzone" data-status="Beklemede">
+                @foreach (var t in Model.Beklemede)
+                {
+                    <div class="card mb-2 draggable task-card" draggable="true" data-id="@t.Id">
+                        <div class="card-body">
+                            <div class="fw-bold">@t.TalepKonusu (@t.JiraId)</div>
+                            <div class="small text-muted">Açan: @t.TalepAcan</div>
+                            <div class="small text-muted">Takip Eden: <span class="takip-eden-text">@(string.IsNullOrWhiteSpace(t.TakipEden) ? "-" : t.TakipEden)</span></div>
+                            <div class="small text-muted">Durum: @t.Durum</div>
+                            <div class="mt-2 d-flex gap-2">
+                                <button type="button" class="btn btn-sm btn-outline-secondary btn-detay">Detay</button>
+                                <button type="button" class="btn btn-sm btn-outline-danger btn-sil">Sil</button>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <h5>Aktif</h5>
+            <div class="dropzone" data-status="Aktif">
+                @foreach (var t in Model.Aktif)
+                {
+                    <div class="card mb-2 draggable task-card" draggable="true" data-id="@t.Id">
+                        <div class="card-body">
+                            <div class="fw-bold">@t.TalepKonusu (@t.JiraId)</div>
+                            <div class="small text-muted">Açan: @t.TalepAcan</div>
+                            <div class="small text-muted">Takip Eden: <span class="takip-eden-text">@(string.IsNullOrWhiteSpace(t.TakipEden) ? "-" : t.TakipEden)</span></div>
+                            <div class="small text-muted">Durum: @t.Durum</div>
+                            <div class="mt-2 d-flex gap-2">
+                                <button type="button" class="btn btn-sm btn-outline-secondary btn-detay">Detay</button>
+                                <button type="button" class="btn btn-sm btn-outline-danger btn-sil">Sil</button>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <h5>Tamamlandı</h5>
+            <div class="dropzone" data-status="Tamamlandı">
+                @foreach (var t in Model.Tamamlandi)
+                {
+                    <div class="card mb-2 draggable task-card" draggable="true" data-id="@t.Id">
+                        <div class="card-body">
+                            <div class="fw-bold">@t.TalepKonusu (@t.JiraId)</div>
+                            <div class="small text-muted">Açan: @t.TalepAcan</div>
+                            <div class="small text-muted">Takip Eden: <span class="takip-eden-text">@(string.IsNullOrWhiteSpace(t.TakipEden) ? "-" : t.TakipEden)</span></div>
+                            <div class="small text-muted">Durum: @t.Durum</div>
+                            <div class="mt-2 d-flex gap-2">
+                                <button type="button" class="btn btn-sm btn-outline-secondary btn-detay">Detay</button>
+                                <button type="button" class="btn btn-sm btn-outline-danger btn-sil">Sil</button>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Detay Modal -->
+<div class="modal fade" id="detayModal" tabindex="-1" aria-labelledby="detayModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="detayModalLabel">İş Detay</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
+            </div>
+            <div class="modal-body" id="detayModalBody">
+                <!-- _JiraDetailCard içerik burada yüklenecek -->
+            </div>
+            <div class="modal-footer flex-column align-items-stretch">
+                <!-- Yorum ekleme formu -->
+                <form id="commentForm" class="w-100">
+                    <input type="hidden" name="jiraTaskId" id="commentTaskId" />
+                    <div class="d-flex gap-2">
+                        <input type="text" name="ekleyen" id="commentEkleyen" class="form-control" placeholder="Ekleyen (opsiyonel)" />
+                        <input type="text" name="yorum" id="commentYorum" class="form-control" placeholder="Yorum" required />
+                        <button type="submit" class="btn btn-success">Yorum Ekle</button>
+                    </div>
+                </form>
+
+                <!-- Atama formu -->
+                <form id="assignForm" class="d-flex gap-2 mt-2">
+                    <input type="hidden" name="Id" id="assignId" />
+                    <input type="text" name="TakipEden" id="assignTakipEden" class="form-control" placeholder="Takip Eden kişi" />
+                    <button type="submit" class="btn btn-primary">Ata</button>
+                </form>
+                <div class="mt-2 w-100 d-flex justify-content-end">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Kapat</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // Drag & Drop
+        let draggedCard = null;
+
+        // Kartları sürüklenebilir yap
+        document.querySelectorAll('.draggable').forEach(card => {
+            card.addEventListener('dragstart', (e) => {
+                draggedCard = e.currentTarget;
+                e.dataTransfer.effectAllowed = 'move';
+                draggedCard.classList.add('opacity-50');
+            });
+            card.addEventListener('dragend', () => {
+                if (draggedCard) draggedCard.classList.remove('opacity-50');
+                draggedCard = null;
+            });
+        });
+
+        // Dropzones
+        document.querySelectorAll('.dropzone').forEach(zone => {
+            zone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                zone.classList.add('border', 'border-primary', 'bg-light');
+                e.dataTransfer.dropEffect = 'move';
+            });
+            zone.addEventListener('dragleave', () => {
+                zone.classList.remove('border', 'border-primary', 'bg-light');
+            });
+
+            zone.addEventListener('drop', async (e) => {
+                e.preventDefault();
+                zone.classList.remove('border', 'border-primary', 'bg-light');
+                if (!draggedCard) return;
+
+                const id = parseInt(draggedCard.getAttribute('data-id'));
+                const yeniDurum = zone.getAttribute('data-status');
+
+                const oldParent = draggedCard.parentElement;
+                zone.appendChild(draggedCard);
+
+                try {
+                    const resp = await fetch('@Url.Action("UpdateDurum", "Takip")', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id, yeniDurum })
+                    });
+
+                    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+
+                    const data = await resp.json();
+                    if (!data.success) {
+                        oldParent.appendChild(draggedCard);
+                        alert('Durum güncellenemedi: ' + (data.message || 'Hata'));
+                    }
+                } catch (err) {
+                    oldParent.appendChild(draggedCard);
+                    alert('Durum güncellemede hata: ' + err);
+                }
+            });
+        });
+
+        // Detay Modal Açma
+        const detayModal = new bootstrap.Modal(document.getElementById('detayModal'));
+        document.querySelectorAll('.btn-detay').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const card = e.target.closest('.task-card');
+                const id = card.getAttribute('data-id');
+
+                try {
+                    const html = await (await fetch('@Url.Action("DetailCard", "Takip")?id=' + id)).text();
+                    document.getElementById('detayModalBody').innerHTML = html;
+
+                    // Formlar için Id set et
+                    document.getElementById('assignId').value = id;
+                    document.getElementById('commentTaskId').value = id;
+
+                    // Var olan TakipEden’i karttan oku
+                    const mevcutTextNode = card.querySelector('.takip-eden-text');
+                    document.getElementById('assignTakipEden').value = mevcutTextNode ? mevcutTextNode.textContent.replace('-', '').trim() : '';
+
+                    detayModal.show();
+                } catch (err) {
+                    alert('Detay yüklenemedi: ' + err);
+                }
+            });
+        });
+
+        // Anti-forgery token (sayfadaki ilk formdan alıyoruz)
+        function getAntiForgeryToken() {
+            const tokenInput = document.querySelector('input[name="__RequestVerificationToken"]');
+            return tokenInput ? tokenInput.value : '';
+        }
+
+        // Takip Eden Atama
+        document.getElementById('assignForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = parseInt(document.getElementById('assignId').value);
+            const takipEden = document.getElementById('assignTakipEden').value.trim();
+
+            try {
+                const resp = await fetch('@Url.Action("Assign", "Takip")', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id, takipEden })
+                });
+
+                if (!resp.ok) throw new Error('HTTP ' + resp.status);
+
+                const data = await resp.json();
+                if (data.success) {
+                    const card = document.querySelector(`.task-card[data-id="${id}"]`);
+                    if (card) {
+                        const span = card.querySelector('.takip-eden-text');
+                        if (span) span.textContent = takipEden || '-';
+                    }
+                    detayModal.hide();
+                } else {
+                    alert('Atama başarısız: ' + (data.message || 'Hata'));
+                }
+            } catch (err) {
+                alert('Atama işleminde hata: ' + err);
+            }
+        });
+
+        // Yorum Ekleme (form-urlencoded + anti-forgery)
+        document.getElementById('commentForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const jiraTaskId = parseInt(document.getElementById('commentTaskId').value);
+            const yorum = document.getElementById('commentYorum').value.trim();
+            const ekleyen = document.getElementById('commentEkleyen').value.trim();
+            const token = getAntiForgeryToken();
+
+            if (!yorum) {
+                alert('Yorum boş olamaz.');
+                return;
+            }
+
+            try {
+                const resp = await fetch('@Url.Action("AddYorum", "Takip")', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({
+                        jiraTaskId,
+                        yorum,
+                        ekleyen,
+                        __RequestVerificationToken: token
+                    })
+                });
+
+                // AddYorum redirect döndürüyor, burada modal içeriğini yeniden çekelim
+                if (resp.ok) {
+                    const html = await (await fetch('@Url.Action("DetailCard", "Takip")?id=' + jiraTaskId)).text();
+                    document.getElementById('detayModalBody').innerHTML = html;
+                    document.getElementById('commentYorum').value = '';
+                } else {
+                    alert('Yorum eklenemedi: HTTP ' + resp.status);
+                }
+            } catch (err) {
+                alert('Yorum eklemede hata: ' + err);
+            }
+        });
+
+        // Silme işlemi
+        document.querySelectorAll('.btn-sil').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const card = e.target.closest('.task-card');
+                const id = parseInt(card.getAttribute('data-id'));
+                if (!confirm('Bu kaydı silmek istediğinize emin misiniz?')) return;
+
+                try {
+                    const resp = await fetch('@Url.Action("Delete", "Takip")', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id })
+                    });
+
+                    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+
+                    const data = await resp.json();
+                    if (data.success) {
+                        card.remove();
+                        applyTaskSearchFilter();
+                    } else {
+                        alert('Silme başarısız: ' + (data.message || 'Hata'));
+                    }
+                } catch (err) {
+                    alert('Silme işleminde hata: ' + err);
+                }
+            });
+        });
+
+        // Arama / Filtre
+        function applyTaskSearchFilter() {
+            const input = document.getElementById('taskSearch');
+            const q = (input ? input.value : '').trim().toLocaleLowerCase('tr-TR');
+
+            const cards = document.querySelectorAll('.task-card');
+            let visibleCount = 0;
+
+            cards.forEach(card => {
+                const text = (card.innerText || '').toLocaleLowerCase('tr-TR');
+                const isMatch = !q || text.includes(q);
+                card.classList.toggle('d-none', !isMatch);
+                if (isMatch) visibleCount++;
+            });
+
+            const countEl = document.getElementById('taskSearchCount');
+            if (countEl) countEl.textContent = visibleCount.toString();
+        }
+
+        const taskSearchInput = document.getElementById('taskSearch');
+        if (taskSearchInput) {
+            taskSearchInput.addEventListener('input', applyTaskSearchFilter);
+        }
+
+        const taskSearchClear = document.getElementById('taskSearchClear');
+        if (taskSearchClear) {
+            taskSearchClear.addEventListener('click', () => {
+                const input = document.getElementById('taskSearch');
+                if (input) input.value = '';
+                applyTaskSearchFilter();
+                if (input) input.focus();
+            });
+        }
+
+        applyTaskSearchFilter();
+    </script>
+    <style>
+        .dropzone {
+            min-height: 60px;
+        }
+    </style>
+}

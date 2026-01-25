@@ -1,0 +1,54 @@
+﻿@model BtOperasyonTakip.Models.Hata
+
+@{
+    ViewData["Title"] = "Yeni Hata Oluştur";
+}
+
+<div class="container mt-5">
+    <h2>Yeni Hata Oluştur</h2>
+
+    <form asp-action="Yeni" method="post" class="row g-3">
+
+        <div class="col-md-6">
+            <label class="form-label">Hata Adı *</label>
+            <input asp-for="HataAdi" class="form-control" required />
+        </div>
+
+        <div class="col-md-6">
+            <label class="form-label">Kategori *</label>
+            <select asp-for="KategoriBilgisi" class="form-select" required>
+                <option value="">Seçiniz</option>
+                <option value="Yazılım">Yazılım</option>
+                <option value="Donanım">Donanım</option>
+                <option value="Ağ">Ağ</option>
+                <option value="Veritabanı">Veritabanı</option>
+                <option value="Diğer">Diğer</option>
+            </select>
+        </div>
+
+        <div class="col-md-6">
+            <label class="form-label">Bildiren Kullanıcı *</label>
+
+        </div>
+
+        <div class="col-md-6">
+            <label class="form-label">Durum *</label>
+            <select asp-for="Durum" class="form-select" required>
+                <option value="Açık">Açık</option>
+                <option value="Beklemede">Beklemede</option>
+                <option value="Kapalı">Kapalı</option>
+            </select>
+        </div>
+
+        <div class="col-12">
+            <label class="form-label">Açıklama</label>
+            <textarea asp-for="HataAciklama" rows="4" class="form-control"></textarea>
+
+        </div>
+
+        <div class="col-12 mt-2">
+            <button class="btn btn-primary">Kaydet</button>
+            <a href="/Hatalar" class="btn btn-secondary">Geri</a>
+        </div>
+    </form>
+</div>

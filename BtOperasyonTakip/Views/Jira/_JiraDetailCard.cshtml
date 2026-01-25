@@ -1,0 +1,40 @@
+﻿@model BtOperasyonTakip.Models.JiraTask
+
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span>@Model.TalepKonusu (@Model.JiraId)</span>
+        <span class="badge bg-secondary">@Model.Durum</span>
+    </div>
+    <div class="card-body">
+        <div class="mb-2 text-muted">
+            Açan: @Model.TalepAcan
+        </div>
+        <div class="mb-2 text-muted">
+            Takip Eden: @(string.IsNullOrWhiteSpace(Model.TakipEden) ? "-" : Model.TakipEden)
+        </div>
+
+        <div class="small text-muted">
+            Oluşturma: @Model.OlusturmaTarihi.ToString("dd.MM.yyyy HH:mm")
+        </div>
+
+        <hr />
+        <h6>Yorumlar</h6>
+        @if (Model.Yorumlar != null && Model.Yorumlar.Any())
+        {
+            <ul class="list-unstyled">
+                @foreach (var y in Model.Yorumlar.OrderByDescending(y => y.Tarih))
+                {
+                    <li class="mb-2">
+                        <strong>@y.Ekleyen</strong>
+                        <span class="text-muted">(@y.Tarih.ToString("dd.MM.yyyy HH:mm"))</span><br />
+                        @y.YorumMetni
+                    </li>
+                }
+            </ul>
+        }
+        else
+        {
+            <div class="text-muted">Henüz yorum yok.</div>
+        }
+    </div>
+</div>
