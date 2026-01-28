@@ -9,6 +9,48 @@
 <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.bootstrap5.min.css" />
 
 <style>
+
+
+    #musteriTable_wrapper {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        overflow: hidden;
+    }
+
+    #musteriTable {
+        width: 100% !important;
+        font-size: 0.9rem;
+    }
+
+        #musteriTable th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        #musteriTable td {
+            vertical-align: middle;
+        }
+
+    .table-responsive {
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    .dataTables_filter input {
+        border: 1px solid #ddd !important;
+        border-radius: 4px !important;
+        padding: 6px 12px !important;
+        margin-left: 10px !important;
+    }
+
+    .dataTables_filter label {
+        font-weight: 600;
+        padding: 4px;
+    }
+
+
     body {
         font-family: 'Poppins', sans-serif;
         background: linear-gradient(180deg, #f6f9ff 0%, #eaf1ff 100%);
@@ -224,96 +266,44 @@
 
     <!-- Grafikler -->
     <div class="row g-3 mb-4 equalize align-items-stretch">
-        <div class="col-md-12">
+        <div class="col-md-8">
             <div class="card chart-card p-3 h-100">
                 <h5 class="text-primary mb-3">📈 Aylık Müşteri Artışı</h5>
                 <div class="chart-box"><canvas id="customerChart"></canvas></div>
             </div>
         </div>
-       
+
+        <div class="col-md-4">
+            <div class="card chart-card p-3 h-100">
+                <h5 class="text-primary mb-3">🥧 Müşteri Durumu</h5>
+                <div class="chart-box"><canvas id="customerStatusChart"></canvas></div>
+            </div>
+        </div>
     </div>
 
     <!-- Müşteriler Tablosu -->
-    <div class="card chart-card mb-4">
-        <div class="card-header bg-light fw-bold text-primary">
-            📋 Kayıtlı Müşteriler (@Model.Musteriler.Count)
-        </div>
-        <div class="card-body">
-            @if (!Model.Musteriler.Any())
-            {
-                <div class="empty-state">
-                    <i class="bi bi-inbox"></i>
-                    <h5>Müşteri Bulunmuyor</h5>
-                    <p>Henüz müşteri kaydı yapılmamıştır. Ticketları onayladığınızda otomatik olarak müşteri kaydı oluşturulacaktır.</p>
-                </div>
-            }
-            else
-            {
-                <div class="row mb-3">
-                    <div class="col-md-4">
-                        <div class="input-group">
-                            <span class="input-group-text bg-light"><i class="fas fa-search"></i></span>
-                            <input type="search" id="firmaSearch" class="form-control" placeholder="Firma adına göre ara...">
-                        </div>
-                    </div>
-                </div>
-
-                <div class="table-responsive">
-                    <table id="musteriTable" class="table table-striped table-bordered align-middle">
-                        <thead class="table-secondary">
-                            <tr>
-                                <th>ID</th>
-                                <th>Firma</th>
-                                <th>Yetkili</th>
-                                <th>Telefon</th>
-                                <th>Site URL</th>
-                                <th>Teknoloji</th>
-                                <th>Durum</th>
-                                <th>Talep Sahibi</th>
-                                <th>Kayıt Tarihi</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var m in Model.Musteriler.OrderByDescending(x => x.KayitTarihi))
-                            {
-                                <tr>
-                                    <td><strong>@m.MusteriID</strong></td>
-                                    <td>@m.Firma</td>
-                                    <td>@m.FirmaYetkilisi</td>
-                                    <td>@m.Telefon</td>
-                                    <td>
-                                        @if (!string.IsNullOrWhiteSpace(m.SiteUrl))
-                                        {
-                                            <a href="@m.SiteUrl" target="_blank" class="text-decoration-none">@(m.SiteUrl.Length > 25 ? m.SiteUrl.Substring(0, 25) + "..." : m.SiteUrl)</a>
-                                        }
-                                        else
-                                        {
-                                            <span class="text-muted">-</span>
-                                        }
-                                    </td>
-                                    <td>@m.Teknoloji</td>
-                                    <td>
-                                        @if (m.Durum?.ToLower() == "aktif")
-                                        {
-                                            <span class="badge bg-success">Aktif</span>
-                                        }
-                                        else if (m.Durum?.ToLower() == "pasif")
-                                        {
-                                            <span class="badge bg-secondary">Pasif</span>
-                                        }
-                                        else
-                                        {
-                                            <span class="badge bg-warning text-dark">@m.Durum</span>
-                                        }
-                                    </td>
-                                    <td>@m.TalepSahibi</td>
-                                    <td>@(m.KayitTarihi?.ToString("dd.MM.yyyy") ?? "-")</td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-            }
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table id="musteriTable" class="table table-striped table-hover table-bordered mb-0">
+                    <thead class="table-secondary">
+                        <tr>
+                            <th>ID</th>
+                            <th>Firma</th>
+                            <th>Yetkili</th>
+                            <th>Telefon</th>
+                            <th>Site URL</th>
+                            <th>Teknoloji</th>
+                            <th>Durum</th>
+                            <th>Talep Sahibi</th>
+                            <th>Kayıt Tarihi</th>
+                            <th>Açıklama</th>
+                            <th width="100">İşlem</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
         </div>
     </div>
 
@@ -415,6 +405,221 @@
     <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.print.min.js"></script>
 
     <script>
+
+        $(document).ready(function () {
+
+            function escapeHtml(value) {
+                return String(value ?? '')
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#39;');
+            }
+
+            function fillSelect($select, items, emptyText) {
+                const current = $select.val() ?? '';
+                const emptyLabel = emptyText ?? 'Tümü';
+
+                $select.empty().append(`<option value="">${escapeHtml(emptyLabel)}</option>`);
+
+                (items ?? []).forEach(function (x) {
+                    const val = escapeHtml(x);
+                    $select.append(`<option value="${val}">${val}</option>`);
+                });
+
+                $select.val(current);
+            }
+
+            function loadFilters() {
+                fetch('/Musteri/Filters')
+                    .then(r => r.json())
+                    .then(d => {
+                        fillSelect($('#filterTeknoloji'), d.teknolojiler, 'Tümü');
+                        fillSelect($('#filterTalep'), d.talepSahipleri, 'Tümü');
+                        fillSelect($('#filterDurum'), d.durumlar, 'Tümü');
+                        fillSelect($('#editDurum'), d.durumlar, 'Seçiniz');
+                    });
+            }
+
+            const table = $('#musteriTable').DataTable({
+                processing: true,
+                serverSide: true,
+                searching: true,
+                order: [[8, 'desc']],
+                responsive: false,
+                deferRender: true,
+                pageLength: 25,
+                lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]],
+                language: {
+                    search: "Firma Ara:",
+                    searchPlaceholder: "Firma adı yazın..."
+                },
+                ajax: {
+                    url: '/Musteri/Data',
+                    type: 'GET',
+                    data: function (d) {
+                        d.firma = d.search?.value ?? '';
+
+                        d.durum = $('#filterDurum').val();
+                        d.teknoloji = $('#filterTeknoloji').val();
+                        d.talepSahibi = $('#filterTalep').val();
+                        d.minDate = $('#minDate').val();
+                        d.maxDate = $('#maxDate').val();
+                    }
+                },
+                columns: [
+                    { data: 'musteriID', visible: false },
+                    { data: 'firma' },
+                    { data: 'firmaYetkilisi' },
+                    { data: 'telefon' },
+                    {
+                        data: 'siteUrl',
+                        orderable: false,
+                        render: function (data) {
+                            if (!data) return '';
+                            const url = escapeHtml(data);
+                            return `<a href="${url}" target="_blank" class="text-decoration-none site-link">🔗 Site</a>`;
+                        }
+                    },
+                    {
+                        data: 'teknoloji',
+                        render: function (data) {
+                            return `<span class="badge bg-info">${escapeHtml(data)}</span>`;
+                        }
+                    },
+                    {
+                        data: 'durum',
+                        render: function (data) {
+                            const v = String(data ?? '');
+                            const cls =
+                                v === 'Aktif' ? 'bg-success' :
+                                v === 'Pasif' ? 'bg-danger' :
+                                v === 'Beklemede' ? 'bg-warning' : 'bg-secondary';
+                            return `<span class="badge ${cls}">${escapeHtml(v)}</span>`;
+                        }
+                    },
+                    { data: 'talepSahibi' },
+                    { data: 'kayitTarihiText' },
+                    {
+                        data: 'aciklama',
+                        render: function (data) {
+                            const t = escapeHtml(data);
+                            return `<span class="text-truncate d-inline-block" style="max-width:200px;" title="${t}">${t}</span>`;
+                        }
+                    },
+                    {
+                        data: null,
+                        orderable: false,
+                        searchable: false,
+                        render: function (row) {
+                            return `
+                                <div class="btn-group btn-group-sm">
+                                    <button type="button" class="btn btn-outline-warning edit-btn" data-id="${row.musteriID}">✏️</button>
+                                    <button type="button" class="btn btn-outline-danger delete-btn" data-id="${row.musteriID}">❌</button>
+                                </div>`;
+                        }
+                    }
+                ]
+            });
+
+            loadFilters();
+
+            $('#filterDurum, #filterTeknoloji, #filterTalep').on('change', function () {
+                table.ajax.reload(null, true);
+            });
+
+            $(document).on('click', 'a.site-link', function (e) {
+                e.stopPropagation();
+            });
+
+            $(document).on('click', '#musteriTable tbody tr', function (e) {
+                if ($(e.target).closest('button').length) return;
+
+                const row = table.row(this).data();
+                if (!row) return;
+
+                const id = row.musteriID;
+
+                $('#musteriTable tr').removeClass('table-primary');
+                $(this).addClass('table-primary');
+
+                $('#selectedInfo').show().html(`<strong>Seçilen Müşteri:</strong> ${escapeHtml(row.firma)}`);
+
+                fetch(`/Detay/GetDetaylar?musteriId=${id}`)
+                    .then(r => r.text())
+                    .then(html => {
+                        $("#detayContainer").hide().html(html).slideDown(250);
+                    });
+            });
+
+            $(document).on('click', '.edit-btn', function (e) {
+                e.stopPropagation();
+
+                const id = Number($(this).data('id'));
+                if (!id) return;
+
+                fetch(`/Detay/GetMusteri?id=${id}`)
+                    .then(r => r.json())
+                    .then(m => {
+                        $('#editMusteriId').val(m.musteriID);
+                        $('#editFirma').val(m.firma);
+                        $('#editFirmaYetkilisi').val(m.firmaYetkilisi);
+                        $('#editTelefon').val(m.telefon);
+                        $('#editSiteUrl').val(m.siteUrl);
+                        $('#editTeknoloji').val(m.teknoloji);
+                        $('#editDurum').val(m.durum);
+                        $('#editTalepSahibi').val(m.talepSahibi);
+                        $('#editAciklama').val(m.aciklama);
+
+                        $('#editMusteriModal').modal('show');
+                    });
+            });
+
+            $('#editMusteriForm').submit(function (e) {
+                e.preventDefault();
+
+                const formData = new FormData(this);
+
+                fetch('/Detay/UpdateMusteri', {
+                    method: 'POST',
+                    body: formData
+                })
+                    .then(r => r.json())
+                    .then(d => {
+                        alert(d.message);
+                        if (d.success) {
+                            $('#editMusteriModal').modal('hide');
+                            table.ajax.reload(null, false);
+                            loadFilters();
+                        }
+                    });
+            });
+
+            $(document).on('click', '.delete-btn', function (e) {
+                e.stopPropagation();
+
+                const id = Number($(this).data('id'));
+                if (!id) return;
+
+                if (!confirm("Silinsin mi?")) return;
+
+                fetch(`/Detay/DeleteMusteri/${id}`, { method: 'DELETE' })
+                    .then(r => r.json())
+                    .then(d => {
+                        alert(d.message);
+                        if (d.success) {
+                            table.ajax.reload(null, false);
+                            loadFilters();
+                        }
+                    });
+            });
+
+        });
+
+
+
+
         // 🕓 Saat ve mesaj
         function guncelleSaat() {
             const now = new Date();
@@ -453,14 +658,14 @@
             }
         });
 
-        // Müşteri Durum Doughnut
+        // Müşteri Durum Pie (dinamik: Aktif/Pasif/Beklemede/...)
         new Chart(document.getElementById('customerStatusChart'), {
-            type: 'doughnut',
+            type: 'pie',
             data: {
-                labels: ['Aktif', 'Pasif'],
+                labels: @Html.Raw(Json.Serialize(Model.MusteriDurumEtiketleri)),
                 datasets: [{
-                    data: [@Model.AktifMusteri, @Model.PasifMusteri],
-                    backgroundColor: ['#28a745', '#6c757d'],
+                    data: @Html.Raw(Json.Serialize(Model.MusteriDurumSayilari)),
+                    backgroundColor: ['#28a745', '#6c757d', '#ffc107', '#0d6efd', '#dc3545', '#20c997'],
                     borderWidth: 2,
                     borderColor: '#fff'
                 }]
@@ -470,8 +675,7 @@
                     legend: {
                         position: 'bottom'
                     }
-                },
-                cutout: '70%'
+                }
             }
         });
 
@@ -528,59 +732,59 @@
         // 📋 DataTable - Müşteriler (sadece veri varsa)
         @if (Model.Musteriler.Any())
         {
-                    <text>
-                const table = $('#musteriTable').DataTable({
-                    order: [[8, "desc"]],
-                    responsive: true,
-                    dom: 'Bfrtip',
-                    buttons: [
-                        { extend: 'excelHtml5', text: '📗 Excel', className: 'btn btn-success btn-sm' },
-                        { extend: 'pdfHtml5', text: '📕 PDF', className: 'btn btn-danger btn-sm' },
-                        { extend: 'print', text: '🖨️ Yazdır', className: 'btn btn-primary btn-sm' }
-                    ],
-                    language: {
-                        url: "https://cdn.datatables.net/plug-ins/1.13.7/i18n/tr.json"
-                    }
-                });
+                                <text>
+                            const table = $('#musteriTable').DataTable({
+                                order: [[8, "desc"]],
+                                responsive: true,
+                                dom: 'Bfrtip',
+                                buttons: [
+                                    { extend: 'excelHtml5', text: '📗 Excel', className: 'btn btn-success btn-sm' },
+                                    { extend: 'pdfHtml5', text: '📕 PDF', className: 'btn btn-danger btn-sm' },
+                                    { extend: 'print', text: '🖨️ Yazdır', className: 'btn btn-primary btn-sm' }
+                                ],
+                                language: {
+                                    url: "https://cdn.datatables.net/plug-ins/1.13.7/i18n/tr.json"
+                                }
+                            });
 
-                // 🔍 Müşteri firması arama
-                $('#firmaSearch').on('keyup', function () {
-                    table.column(1).search(this.value, true, false).draw();
-                });
+                            // 🔍 Müşteri firması arama
+                            $('#firmaSearch').on('keyup', function () {
+                                table.column(1).search(this.value, true, false).draw();
+                            });
 
-                $('#firmaSearch').on('keypress', function (e) {
-                    if (e.which === 13) e.preventDefault();
-                });
-                    </text>
+                            $('#firmaSearch').on('keypress', function (e) {
+                                if (e.which === 13) e.preventDefault();
+                            });
+                                </text>
         }
 
         // 📋 DataTable - Ticketlar (sadece veri varsa)
         @if (Model.Tickets.Any())
         {
-                    <text>
-                const ticketTable = $('#ticketTable').DataTable({
-                    order: [[7, "desc"]],
-                    responsive: true,
-                    dom: 'Bfrtip',
-                    buttons: [
-                        { extend: 'excelHtml5', text: '📗 Excel', className: 'btn btn-success btn-sm' },
-                        { extend: 'pdfHtml5', text: '📕 PDF', className: 'btn btn-danger btn-sm' },
-                        { extend: 'print', text: '🖨️ Yazdır', className: 'btn btn-primary btn-sm' }
-                    ],
-                    language: {
-                        url: "https://cdn.datatables.net/plug-ins/1.13.7/i18n/tr.json"
-                    }
-                });
+                                <text>
+                            const ticketTable = $('#ticketTable').DataTable({
+                                order: [[7, "desc"]],
+                                responsive: true,
+                                dom: 'Bfrtip',
+                                buttons: [
+                                    { extend: 'excelHtml5', text: '📗 Excel', className: 'btn btn-success btn-sm' },
+                                    { extend: 'pdfHtml5', text: '📕 PDF', className: 'btn btn-danger btn-sm' },
+                                    { extend: 'print', text: '🖨️ Yazdır', className: 'btn btn-primary btn-sm' }
+                                ],
+                                language: {
+                                    url: "https://cdn.datatables.net/plug-ins/1.13.7/i18n/tr.json"
+                                }
+                            });
 
-                // 🔍 Ticket arama
-                $('#ticketSearch').on('keyup', function () {
-                    ticketTable.column(1).search(this.value, true, false).draw();
-                });
+                            // 🔍 Ticket arama
+                            $('#ticketSearch').on('keyup', function () {
+                                ticketTable.column(1).search(this.value, true, false).draw();
+                            });
 
-                $('#ticketSearch').on('keypress', function (e) {
-                    if (e.which === 13) e.preventDefault();
-                });
-                    </text>
+                            $('#ticketSearch').on('keypress', function (e) {
+                                if (e.which === 13) e.preventDefault();
+                            });
+                                </text>
         }
     </script>
 }

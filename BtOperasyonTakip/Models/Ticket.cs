@@ -7,11 +7,9 @@ namespace BtOperasyonTakip.Models
     {
         public int Id { get; set; }
 
-        // Firma bilgisi
         [Required, StringLength(200)]
         public string FirmaAdi { get; set; } = string.Empty;
 
-        // Müşteri bilgileri
         [Required, StringLength(500)]
         public string MusteriWebSitesi { get; set; }
 
@@ -33,15 +31,13 @@ namespace BtOperasyonTakip.Models
         [StringLength(1000)]
         public string? Aciklama { get; set; }
 
-        // Durum: "Onay Bekleniyor", "Onaylandi", "Reddedildi"
+        // Durum: "Uyum Onayı Bekleniyor", "Operasyon Onayı Bekleniyor", "Onaylandi", "Reddedildi"
         [Required, StringLength(50)]
-        public string Durum { get; set; } = "Onay Bekleniyor";
+        public string Durum { get; set; } = "Uyum Onayı Bekleniyor";
 
-        // Operasyon tarafından red/onay kararı açıklaması (opsiyonel)
         [StringLength(500)]
         public string? KararAciklamasi { get; set; }
 
-        // Sahanın oluşturduğu ticket bilgisi
         [Required]
         public int OlusturanUserId { get; set; }
 
@@ -50,7 +46,6 @@ namespace BtOperasyonTakip.Models
 
         public DateTime OlusturmaTarihi { get; set; } = DateTime.UtcNow;
 
-        // Operasyon tarafından onay/red veren kişi
         public int? OnaylayanUserId { get; set; }
 
         [StringLength(100)]
@@ -58,7 +53,17 @@ namespace BtOperasyonTakip.Models
 
         public DateTime? OnaylamaTarihi { get; set; }
 
-        // Onaylanan ticket'ın müşteri olarak kaydedildiği müşteri ID
         public int? MusteriID { get; set; }
+
+        // Uyum onayı bilgisi
+        public int? UyumOnaylayanUserId { get; set; }
+
+        [StringLength(100)]
+        public string? UyumOnaylayanKullaniciAdi { get; set; }
+
+        public DateTime? UyumOnayTarihi { get; set; }
+
+        [StringLength(500)]
+        public string? UyumKararAciklamasi { get; set; }
     }
 }

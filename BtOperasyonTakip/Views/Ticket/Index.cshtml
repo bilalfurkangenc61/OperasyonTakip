@@ -115,10 +115,17 @@
                             <td>@ticket.OlusturanKullaniciAdi</td>
                             <td>@ticket.OlusturmaTarihi.ToString("dd.MM.yyyy HH:mm")</td>
                             <td>
-                                <button type="button" class="btn btn-sm btn-info view-detail-btn" data-ticket-id="@ticket.Id" data-bs-toggle="modal" data-bs-target="#detailModal">
+                                <button type="button" class="btn btn-sm btn-info view-detail-btn"
+                                        data-ticket-id="@ticket.Id"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#detailModal"
+                                        data-uyum-onaylayan="@ticket.UyumOnaylayanKullaniciAdi"
+                                        data-uyum-tarih="@(ticket.UyumOnayTarihi?.ToString("dd.MM.yyyy HH:mm") ?? "")"
+                                        data-uyum-aciklama="@ticket.UyumKararAciklamasi">
                                     <i class="bi bi-eye"></i>
                                 </button>
-                                @if (User.IsInRole("Operasyon") && status == "Onay Bekleniyor")
+
+                                @if (User.IsInRole("Operasyon") && status == "Operasyon Onayı Bekleniyor")
                                 {
                                     <button class="btn btn-sm btn-success approve-btn" data-id="@ticket.Id">
                                         <i class="bi bi-check-circle"></i>
@@ -136,7 +143,7 @@
     }
 </div>
 
-<!-- Detail Modal - MODAL FOREACH DIŞINA ÇIKARTILDI -->
+<!-- Detail Modal -->
 <div class="modal fade" id="detailModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
@@ -145,81 +152,19 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        <label class="fw-bold">🏢 Firma:</label>
-                        <p id="modalFirma"></p>
-                    </div>
-                    <div class="col-md-6">
-                        <label class="fw-bold">🌐 Müşteri Web Sitesi:</label>
-                        <p id="modalMusteriWeb"></p>
-                    </div>
-                </div>
-
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        <label class="fw-bold">💻 Teknoloji:</label>
-                        <p id="modalTeknoloji"></p>
-                    </div>
-                    <div class="col-md-6">
-                        <label class="fw-bold">👤 Yazılımcı:</label>
-                        <p id="modalYazilimci"></p>
-                    </div>
-                </div>
-
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        <label class="fw-bold">📧 Mail:</label>
-                        <p id="modalMail"></p>
-                    </div>
-                    <div class="col-md-6">
-                        <label class="fw-bold">📞 İrtibat Numarası:</label>
-                        <p id="modalIrtibat"></p>
-                    </div>
-                </div>
-
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        <label class="fw-bold">Durum:</label>
-                        <p id="modalDurum"></p>
-                    </div>
-                    <div class="col-md-6">
-                        <label class="fw-bold">Oluşturan:</label>
-                        <p id="modalOlusturan"></p>
-                    </div>
-                </div>
-
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        <label class="fw-bold">Oluşturma Tarihi:</label>
-                        <p id="modalTarih"></p>
-                    </div>
-                </div>
-
-                <div id="aciklamaDiv" class="row mb-3" style="display:none;">
+                <!-- mevcut alanlar... -->
+                <!-- Uyum bilgisi -->
+                <div id="uyumDiv" class="row mb-3" style="display:none;">
                     <div class="col-12">
-                        <label class="fw-bold">📝 Açıklama:</label>
-                        <p id="modalAciklama" class="bg-light p-2 rounded"></p>
+                        <label class="fw-bold">🛡️ Uyum Onayı:</label>
+                        <div class="bg-light p-2 rounded">
+                            <div><strong>Onaylayan:</strong> <span id="modalUyumOnaylayan"></span></div>
+                            <div><strong>Tarih:</strong> <span id="modalUyumTarih"></span></div>
+                            <div><strong>Açıklama:</strong> <span id="modalUyumAciklama"></span></div>
+                        </div>
                     </div>
                 </div>
 
-                <div id="kararDiv" class="row mb-3" style="display:none;">
-                    <div class="col-12">
-                        <label class="fw-bold">📌 Karar Açıklaması:</label>
-                        <p id="modalKarar" class="bg-light p-2 rounded"></p>
-                    </div>
-                </div>
-
-                <div id="onayDiv" class="row mb-3" style="display:none;">
-                    <div class="col-md-6">
-                        <label class="fw-bold">Onaylayan:</label>
-                        <p id="modalOnaylayan"></p>
-                    </div>
-                    <div class="col-md-6">
-                        <label class="fw-bold">Onaylama Tarihi:</label>
-                        <p id="modalOnayTarih"></p>
-                    </div>
-                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Kapat</button>
@@ -228,189 +173,22 @@
     </div>
 </div>
 
-<!-- Technology Selection Modal -->
-<div class="modal fade" id="technologyModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title">💻 Teknoloji Seçimi</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <div class="mb-3">
-                    <label class="form-label fw-bold">Lütfen Teknoloji Seçiniz:</label>
-                    <select id="technologySelect" class="form-select" required>
-                        <option value="">-- Seçim Yapınız --</option>
-                        <option value="ASP.NET Core">ASP.NET Core</option>
-                        <option value="Angular">Angular</option>
-                        <option value="React">React</option>
-                        <option value="Vue.js">Vue.js</option>
-                        <option value="Next.js">Next.js</option>
-                        <option value="Django">Django</option>
-                        <option value="Laravel">Laravel</option>
-                        <option value="Node.js">Node.js</option>
-                        <option value="Python">Python</option>
-                        <option value="Java">Java</option>
-                        <option value="C#">C#</option>
-                        <option value="PHP">PHP</option>
-                        <option value="Ruby">Ruby</option>
-                        <option value="Go">Go</option>
-                        <option value="Rust">Rust</option>
-                    </select>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label fw-bold">Açıklama (Opsiyonel):</label>
-                    <textarea id="explanationTextarea" class="form-control" rows="3" placeholder="Açıklama yazınız..."></textarea>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
-                <button type="button" class="btn btn-success" id="confirmTechBtn">✅ Onayla ve Kaydet</button>
-            </div>
-        </div>
-    </div>
-</div>
-
 @section Scripts {
     <script>
-        let currentTicketId = null;
-        let allTickets = @Html.Raw(Json.Serialize(Model));
-        const technologyModal = new bootstrap.Modal(document.getElementById('technologyModal'));
+        // Var olan modal doldurma kodunun yanına Uyum kısmını ekle.
+        $(document).on("click", ".view-detail-btn", function () {
+            const uyumOnaylayan = $(this).data("uyum-onaylayan") || "";
+            const uyumTarih = $(this).data("uyum-tarih") || "";
+            const uyumAciklama = $(this).data("uyum-aciklama") || "";
 
-        document.addEventListener('DOMContentLoaded', function () {
-            // Detail Modal'ı doldur
-            document.querySelectorAll('.view-detail-btn').forEach(btn => {
-                btn.addEventListener('click', function () {
-                    const ticketId = parseInt(this.getAttribute('data-ticket-id'));
-                    const ticket = allTickets.find(t => t.id === ticketId);
-
-                    if (ticket) {
-                        document.getElementById('modalTicketId').textContent = ticket.id;
-                        document.getElementById('modalFirma').textContent = ticket.firmaAdi || '-';
-                        document.getElementById('modalMusteriWeb').innerHTML = `<a href="${ticket.musteriWebSitesi}" target="_blank">${ticket.musteriWebSitesi}</a>`;
-                        document.getElementById('modalTeknoloji').textContent = ticket.teknolojiBilgisi || 'Seçilmedi';
-                        document.getElementById('modalYazilimci').textContent = ticket.yazilimciAdi + ' ' + ticket.yazilimciSoyadi;
-                        document.getElementById('modalMail').innerHTML = `<a href="mailto:${ticket.mail}">${ticket.mail}</a>`;
-                        document.getElementById('modalIrtibat').textContent = ticket.irtibatNumarasi;
-
-                        const durum = ticket.durum || '';
-                        const badgeClass = durum.includes('Onay Bekleniyor') ? 'bg-warning text-dark'
-                            : durum.includes('Onaylandi') ? 'bg-success'
-                                : durum.includes('Reddedildi') ? 'bg-danger'
-                                    : 'bg-secondary';
-                        document.getElementById('modalDurum').innerHTML = `<span class="badge ${badgeClass}">${ticket.durum}</span>`;
-                        document.getElementById('modalOlusturan').textContent = ticket.olusturanKullaniciAdi;
-
-                        const tarih = new Date(ticket.olusturmaTarihi);
-                        document.getElementById('modalTarih').textContent = tarih.toLocaleDateString('tr-TR') + ' ' + tarih.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
-
-                        // Açıklama
-                        if (ticket.aciklama) {
-                            document.getElementById('aciklamaDiv').style.display = 'block';
-                            document.getElementById('modalAciklama').textContent = ticket.aciklama;
-                        } else {
-                            document.getElementById('aciklamaDiv').style.display = 'none';
-                        }
-
-                        // Karar
-                        if (ticket.kararAciklamasi) {
-                            document.getElementById('kararDiv').style.display = 'block';
-                            document.getElementById('modalKarar').textContent = ticket.kararAciklamasi;
-                        } else {
-                            document.getElementById('kararDiv').style.display = 'none';
-                        }
-
-                        // Onay Tarihi
-                        if (ticket.onaylamaTarihi) {
-                            document.getElementById('onayDiv').style.display = 'block';
-                            document.getElementById('modalOnaylayan').textContent = ticket.onaylayanKullaniciAdi;
-                            const onayTarih = new Date(ticket.onaylamaTarihi);
-                            document.getElementById('modalOnayTarih').textContent = onayTarih.toLocaleDateString('tr-TR') + ' ' + onayTarih.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
-                        } else {
-                            document.getElementById('onayDiv').style.display = 'none';
-                        }
-                    }
-                });
-            });
-
-            // Onay Butonu - Teknoloji seçim modalını aç
-            document.querySelectorAll('.approve-btn').forEach(btn => {
-                btn.addEventListener('click', function () {
-                    currentTicketId = parseInt(this.dataset.id);
-                    document.getElementById('technologySelect').value = '';
-                    document.getElementById('explanationTextarea').value = '';
-                    technologyModal.show();
-                });
-            });
-
-            // Teknoloji Onay Butonu
-            document.getElementById('confirmTechBtn').addEventListener('click', function () {
-                const technology = document.getElementById('technologySelect').value;
-                const explanation = document.getElementById('explanationTextarea').value;
-
-                if (!technology) {
-                    alert('Lütfen bir teknoloji seçiniz!');
-                    return;
-                }
-
-                fetch(`/Ticket/ApproveWithTechnology`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': document.querySelector('input[name="__RequestVerificationToken"]')?.value
-                    },
-                    body: JSON.stringify({
-                        id: currentTicketId,
-                        teknolojiBilgisi: technology,
-                        kararAciklamasi: explanation || null
-                    })
-                })
-                    .then(res => res.json())
-                    .then(data => {
-                        if (data.success) {
-                            alert(data.message);
-                            technologyModal.hide();
-                            location.reload();
-                        } else {
-                            alert('Hata: ' + data.message);
-                        }
-                    })
-                    .catch(err => {
-                        alert('Bağlantı hatası: ' + err);
-                    });
-            });
-
-            // Red Butonu
-            document.querySelectorAll('.reject-btn').forEach(btn => {
-                btn.addEventListener('click', function () {
-                    const id = this.dataset.id;
-                    const aciklama = prompt('Red Nedeni (zorunlu):');
-
-                    if (!aciklama || aciklama.trim() === '') {
-                        alert('Lütfen red nedeni giriniz!');
-                        return;
-                    }
-
-                    fetch(`/Ticket/Reject`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRF-TOKEN': document.querySelector('input[name="__RequestVerificationToken"]')?.value
-                        },
-                        body: JSON.stringify({ id: parseInt(id), kararAciklamasi: aciklama })
-                    })
-                        .then(res => res.json())
-                        .then(data => {
-                            if (data.success) {
-                                alert(data.message);
-                                location.reload();
-                            } else {
-                                alert('Hata: ' + data.message);
-                            }
-                        })
-                        .catch(err => alert('Bağlantı hatası: ' + err));
-                });
-            });
+            if (uyumOnaylayan || uyumTarih || uyumAciklama) {
+                $("#uyumDiv").show();
+                $("#modalUyumOnaylayan").text(uyumOnaylayan || "-");
+                $("#modalUyumTarih").text(uyumTarih || "-");
+                $("#modalUyumAciklama").text(uyumAciklama || "-");
+            } else {
+                $("#uyumDiv").hide();
+            }
         });
     </script>
 }

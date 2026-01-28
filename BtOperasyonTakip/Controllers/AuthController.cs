@@ -36,6 +36,8 @@ namespace BtOperasyonTakip.Controllers
                     return RedirectToAction("Index", "Dashboard");
                 if (User.IsInRole("Saha"))
                     return RedirectToAction("Index", "Ticket");
+                if (User.IsInRole("Uyum"))
+                    return RedirectToAction("Index", "Uyum");
 
                 return RedirectToAction("Index", "Dashboard");
             }
@@ -76,8 +78,10 @@ namespace BtOperasyonTakip.Controllers
 
             if (user.Role == "Operasyon")
                 return RedirectToAction("Index", "Dashboard");
-            else
-                return RedirectToAction("Index", "Ticket");
+            if (user.Role == "Uyum")
+                return RedirectToAction("Index", "Uyum");
+
+            return RedirectToAction("Index", "Ticket");
         }
 
         [HttpGet]
@@ -90,26 +94,24 @@ namespace BtOperasyonTakip.Controllers
         {
             if (_context.Users.Any(u => u.UserName == username))
             {
-
                 ViewBag.Error = "Bu kullanıcı adı zaten mevcut.";
                 return View();
             }
-
-            else if(_context.Users.Any(u => u.Email == email))
+            else if (_context.Users.Any(u => u.Email == email))
             {
                 ViewBag.Error = "Bu e-mail adı zaten mevcut.";
                 return View();
             }
-            
+
             var user = new User
-                {
-                    FullName = fullName,
-                    UserName = username,
-                    Email = email,
-                    PasswordHash = HashPassword(password),
-                    CreatedAt = DateTime.Now,
-                    Role = string.IsNullOrWhiteSpace(role) ? "Saha" : role
-                };
+            {
+                FullName = fullName,
+                UserName = username,
+                Email = email,
+                PasswordHash = HashPassword(password),
+                CreatedAt = DateTime.Now,
+                Role = string.IsNullOrWhiteSpace(role) ? "Saha" : role
+            };
 
             _context.Users.Add(user);
             _context.SaveChanges();
@@ -118,8 +120,10 @@ namespace BtOperasyonTakip.Controllers
 
             if (user.Role == "Operasyon")
                 return RedirectToAction("Index", "Home");
-            else
-                return RedirectToAction("Index", "Ticket");
+            if (user.Role == "Uyum")
+                return RedirectToAction("Index", "Uyum");
+
+            return RedirectToAction("Index", "Ticket");
         }
 
         [HttpGet]

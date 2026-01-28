@@ -7,7 +7,7 @@ using System.Linq;
 
 namespace BtOperasyonTakip.Controllers
 {
-    [Authorize(Roles = "Saha,Operasyon")]
+    [Authorize(Roles = "Saha,Operasyon,Uyum")]
     public class TicketController : Controller
     {
         private readonly AppDbContext _context;
@@ -17,7 +17,10 @@ namespace BtOperasyonTakip.Controllers
             _context = context;
         }
 
-        // Index: Saha sadece kendi ticketlarını, Operasyon tüm ticketları görsün (arama desteği ile)
+        // Index:
+        // - Saha: kendi ticketları
+        // - Uyum: "Uyum Onayı Bekleniyor"
+        // - Operasyon: "Operasyon Onayı Bekleniyor" + (istersen Onaylandi da gösterilebilir)
         public IActionResult Index(string? searchFirma)
         {
             IQueryable<Ticket> query = _context.Tickets;
@@ -27,8 +30,15 @@ namespace BtOperasyonTakip.Controllers
                 var userId = int.TryParse(User.FindFirst("UserId")?.Value, out var id) ? id : 0;
                 query = query.Where(t => t.OlusturanUserId == userId);
             }
+            else if (User.IsInRole("Uyum"))
+            {
+                query = query.Where(t => t.Durum == "Uyum Onayı Bekleniyor");
+            }
+            else if (User.IsInRole("Operasyon"))
+            {
+                query = query.Where(t => t.Durum == "Operasyon Onayı Bekleniyor" || t.Durum == "Onaylandi");
+            }
 
-            // Firma adına göre arama (FirmaAdi + MusteriWebSitesi + Yazilimci)
             if (!string.IsNullOrWhiteSpace(searchFirma))
             {
                 query = query.Where(t =>
@@ -71,12 +81,12 @@ namespace BtOperasyonTakip.Controllers
                 ticket.OlusturanUserId = userId;
                 ticket.OlusturanKullaniciAdi = User.Identity?.Name ?? "Bilinmiyor";
                 ticket.OlusturmaTarihi = DateTime.UtcNow;
-                ticket.Durum = "Onay Bekleniyor";
+                ticket.Durum = "Uyum Onayı Bekleniyor";
 
                 _context.Tickets.Add(ticket);
                 _context.SaveChanges();
 
-                TempData["Success"] = "✅ Ticket başarıyla oluşturuldu! Onay bekleniyor.";
+                TempData["Success"] = "✅ Ticket başarıyla oluşturuldu! Uyum onayı bekleniyor.";
                 return RedirectToAction("Index");
             }
             catch (Exception ex)
@@ -103,6 +113,7 @@ namespace BtOperasyonTakip.Controllers
             return View(ticket);
         }
 
+        // OPERASYON nihai onay (Uyum onayından sonra)
         [HttpPost]
         [Authorize(Roles = "Operasyon")]
         public IActionResult ApproveWithTechnology([FromBody] ApproveWithTechRequest request)
@@ -113,6 +124,9 @@ namespace BtOperasyonTakip.Controllers
             var ticket = _context.Tickets.FirstOrDefault(t => t.Id == request.Id);
             if (ticket == null)
                 return Json(new { success = false, message = "Ticket bulunamadı!" });
+
+            if (ticket.Durum != "Operasyon Onayı Bekleniyor")
+                return Json(new { success = false, message = $"Ticket bu aşamada operasyon onayına uygun değil. Durum: {ticket.Durum}" });
 
             try
             {
@@ -130,7 +144,6 @@ namespace BtOperasyonTakip.Controllers
 
                 if (mevcutMusteri != null)
                 {
-                    // Var olan müşteriyi güncelle (firma adı dahil)
                     mevcutMusteri.Firma = string.IsNullOrWhiteSpace(ticket.FirmaAdi) ? mevcutMusteri.Firma : ticket.FirmaAdi;
                     mevcutMusteri.FirmaYetkilisi = $"{ticket.YazilimciAdi} {ticket.YazilimciSoyadi}";
                     mevcutMusteri.Telefon = ticket.IrtibatNumarasi;
@@ -146,7 +159,7 @@ namespace BtOperasyonTakip.Controllers
                 {
                     musteri = new Musteri
                     {
-                        Firma = ticket.FirmaAdi, // ✅ kritik düzeltme
+                        Firma = ticket.FirmaAdi,
                         FirmaYetkilisi = $"{ticket.YazilimciAdi} {ticket.YazilimciSoyadi}",
                         Telefon = ticket.IrtibatNumarasi,
                         SiteUrl = ticket.MusteriWebSitesi,
@@ -170,7 +183,7 @@ namespace BtOperasyonTakip.Controllers
 
                 _context.SaveChanges();
 
-                return Json(new { success = true, message = "✅ Ticket onaylandı ve müşteri kaydı oluşturuldu!" });
+                return Json(new { success = true, message = "✅ Ticket operasyon tarafından onaylandı ve müşteri kaydı oluşturuldu!" });
             }
             catch (Exception ex)
             {
@@ -189,6 +202,9 @@ namespace BtOperasyonTakip.Controllers
             if (ticket == null)
                 return Json(new { success = false, message = "Ticket bulunamadı!" });
 
+            if (ticket.Durum != "Operasyon Onayı Bekleniyor")
+                return Json(new { success = false, message = $"Ticket bu aşamada operasyon reddine uygun değil. Durum: {ticket.Durum}" });
+
             try
             {
                 var userId = int.TryParse(User.FindFirst("UserId")?.Value, out var uid) ? uid : 0;
@@ -201,7 +217,7 @@ namespace BtOperasyonTakip.Controllers
 
                 _context.SaveChanges();
 
-                return Json(new { success = true, message = "❌ Ticket reddedildi!" });
+                return Json(new { success = true, message = "❌ Ticket operasyon tarafından reddedildi!" });
             }
             catch (Exception ex)
             {
