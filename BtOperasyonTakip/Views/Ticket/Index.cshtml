@@ -125,12 +125,12 @@
                                     <i class="bi bi-eye"></i>
                                 </button>
 
-                                @if (User.IsInRole("Operasyon") && status == "Operasyon Onayı Bekleniyor")
+                                @if (User.IsInRole("Operasyon") && string.Equals(status, "Operasyon Onayı Bekleniyor", StringComparison.OrdinalIgnoreCase))
                                 {
-                                    <button class="btn btn-sm btn-success approve-btn" data-id="@ticket.Id">
+                                    <button type="button" class="btn btn-sm btn-success approve-btn" data-id="@ticket.Id">
                                         <i class="bi bi-check-circle"></i>
                                     </button>
-                                    <button class="btn btn-sm btn-danger reject-btn" data-id="@ticket.Id">
+                                    <button type="button" class="btn btn-sm btn-danger reject-btn" data-id="@ticket.Id">
                                         <i class="bi bi-x-circle"></i>
                                     </button>
                                 }
@@ -175,7 +175,7 @@
 
 @section Scripts {
     <script>
-        // Var olan modal doldurma kodunun yanına Uyum kısmını ekle.
+        // Detay modal: uyum alanları
         $(document).on("click", ".view-detail-btn", function () {
             const uyumOnaylayan = $(this).data("uyum-onaylayan") || "";
             const uyumTarih = $(this).data("uyum-tarih") || "";
@@ -188,6 +188,49 @@
                 $("#modalUyumAciklama").text(uyumAciklama || "-");
             } else {
                 $("#uyumDiv").hide();
+            }
+        });
+
+        // Operasyon: Onay
+        $(document).on("click", ".approve-btn", async function () {
+            const id = Number($(this).data("id"));
+            const teknolojiBilgisi = (prompt("Teknoloji seçiniz / giriniz:", "") || "").trim();
+            if (!teknolojiBilgisi) return;
+
+            const kararAciklamasi = (prompt("Karar açıklaması (opsiyonel):", "") || "").trim();
+
+            try {
+                const res = await fetch("@Url.Action("ApproveWithTechnology", "Ticket")", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ id, teknolojiBilgisi, kararAciklamasi })
+                });
+
+                const data = await res.json();
+                alert(data.message || "İşlem tamamlandı.");
+                if (data.success) location.reload();
+            } catch (e) {
+                alert("İstek hatası: " + (e?.message || e));
+            }
+        });
+
+        // Operasyon: Red
+        $(document).on("click", ".reject-btn", async function () {
+            const id = Number($(this).data("id"));
+            const kararAciklamasi = (prompt("Red açıklaması:", "") || "").trim();
+
+            try {
+                const res = await fetch("@Url.Action("Reject", "Ticket")", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ id, kararAciklamasi })
+                });
+
+                const data = await res.json();
+                alert(data.message || "İşlem tamamlandı.");
+                if (data.success) location.reload();
+            } catch (e) {
+                alert("İstek hatası: " + (e?.message || e));
             }
         });
     </script>
