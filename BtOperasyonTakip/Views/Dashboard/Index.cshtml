@@ -9,8 +9,6 @@
 <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.bootstrap5.min.css" />
 
 <style>
-
-
     #musteriTable_wrapper {
         background: white;
         border-radius: 8px;
@@ -49,7 +47,6 @@
         font-weight: 600;
         padding: 4px;
     }
-
 
     body {
         font-family: 'Poppins', sans-serif;
@@ -137,17 +134,6 @@
             line-height: 1;
         }
 
-        .stat-card small {
-            font-size: 0.7rem;
-            opacity: 0.8;
-            font-weight: 500;
-            display: none;
-        }
-
-        .stat-card:hover small {
-            display: block;
-        }
-
     .chart-card {
         border-radius: 1rem;
         box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
@@ -158,6 +144,12 @@
     .chart-box {
         height: 260px;
         max-height: 260px;
+    }
+
+    .chart-box--pie {
+        height: 360px;
+        max-height: 360px;
+        padding: 6px 4px;
     }
 
     table.dataTable thead {
@@ -196,87 +188,155 @@
 
 <div class="container-fluid mt-4 animate-up">
 
-    <!-- Hoş Geldin Barı -->
     <div class="welcome-bar">
         <div>
-            <h5>👋 Hoş geldin, <strong>@(User.Identity?.Name ?? "Kullanıcı")</strong>!</h5>
+            <h5>Hoş geldin, <strong>@(User.Identity?.Name ?? "Kullanıcı")</strong>!</h5>
             <div class="sub" id="motivasyonMetni"></div>
         </div>
         <div id="saatTarih"></div>
     </div>
 
-    <!-- Müşteri İstatistikleri -->
+    <!-- Ay filtresi (period) -->
+    <div class="card chart-card mb-3">
+        <div class="card-body d-flex flex-wrap align-items-center gap-2">
+            <div class="fw-bold text-primary">Aylık Filtre</div>
+
+            <form method="get" class="d-flex flex-wrap gap-2 align-items-center ms-auto">
+                <select class="form-select form-select-sm" name="period" style="width: 180px;">
+                    @foreach (var opt in Model.AySecenekleri)
+                    {
+                        var v = $"{opt.Year:D4}-{opt.Month:D2}";
+                        var selected = opt.Year == Model.SeciliYil && opt.Month == Model.SeciliAy;
+                        <option value="@v" selected="@(selected ? "selected" : null)">@opt.Label</option>
+                    }
+                </select>
+                <button class="btn btn-sm btn-outline-primary" type="submit">Uygula</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Kartlar -->
     <div class="row g-2 mb-4">
         <div class="col-lg-2 col-md-2 col-sm-6 col-6">
             <div class="card stat-card bg-primary text-center">
                 <div class="card-body">
                     <h6>Toplam Müşteri</h6>
                     <h2>@Model.ToplamMusteri</h2>
-
                 </div>
             </div>
         </div>
+
         <div class="col-lg-2 col-md-2 col-sm-6 col-6">
             <div class="card stat-card bg-success text-center">
                 <div class="card-body">
                     <h6>Aktif Müşteri</h6>
                     <h2>@Model.AktifMusteri</h2>
-
                 </div>
             </div>
         </div>
+
         <div class="col-lg-2 col-md-2 col-sm-6 col-6">
             <div class="card stat-card bg-secondary text-center">
                 <div class="card-body">
                     <h6>Pasif Müşteri</h6>
                     <h2>@Model.PasifMusteri</h2>
-
                 </div>
             </div>
         </div>
+
         <div class="col-lg-2 col-md-2 col-sm-6 col-6">
             <div class="card stat-card bg-secondary text-center">
                 <div class="card-body">
-                    <h6>⏳ Onay Bekleyen</h6>
+                    <h6>Onay Bekleyen</h6>
                     <h2>@Model.TicketOnaybekleniyor</h2>
-
                 </div>
             </div>
         </div>
+
         <div class="col-lg-2 col-md-2 col-sm-6 col-6">
             <div class="card stat-card bg-secondary text-center">
                 <div class="card-body">
-                    <h6>✅ Onaylanan</h6>
+                    <h6>Onaylanan</h6>
                     <h2>@Model.TicketOnaylandi</h2>
-
                 </div>
             </div>
         </div>
+
         <div class="col-lg-2 col-md-2 col-sm-6 col-6">
             <div class="card stat-card bg-info text-center">
                 <div class="card-body">
-                    <h6>Açık </h6>
+                    <h6>Jira Açık</h6>
                     <h2>@(Model.JiraAktif + Model.JiraBeklemede)</h2>
-
                 </div>
             </div>
         </div>
 
+        <div class="col-lg-2 col-md-2 col-sm-6 col-6">
+            <div class="card stat-card bg-danger text-center">
+                <div class="card-body">
+                    <h6>Açık Hata (@Model.SeciliAy/@Model.SeciliYil)</h6>
+                    <h2>@Model.HataAcikSeciliAy</h2>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-2 col-md-2 col-sm-6 col-6">
+            <div class="card stat-card bg-warning text-dark text-center">
+                <div class="card-body">
+                    <h6>Beklemede Hata</h6>
+                    <h2>@Model.HataBeklemedeSeciliAy</h2>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-2 col-md-2 col-sm-6 col-6">
+            <div class="card stat-card bg-success text-center">
+                <div class="card-body">
+                    <h6>Kapalı Hata</h6>
+                    <h2>@Model.HataKapaliSeciliAy</h2>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-2 col-md-2 col-sm-6 col-6">
+            <div class="card stat-card bg-dark text-center">
+                <div class="card-body">
+                    <h6>Toplam Hata</h6>
+                    <h2>@Model.HataToplamSeciliAy</h2>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Grafikler -->
     <div class="row g-3 mb-4 equalize align-items-stretch">
         <div class="col-md-8">
             <div class="card chart-card p-3 h-100">
-                <h5 class="text-primary mb-3">📈 Aylık Müşteri Artışı</h5>
+                <h5 class="text-primary mb-3">Aylık Müşteri Artışı</h5>
                 <div class="chart-box"><canvas id="customerChart"></canvas></div>
             </div>
         </div>
 
         <div class="col-md-4">
             <div class="card chart-card p-3 h-100">
-                <h5 class="text-primary mb-3">🥧 Müşteri Durumu</h5>
-                <div class="chart-box"><canvas id="customerStatusChart"></canvas></div>
+                <h5 class="text-primary mb-3">Müşteri Durumu</h5>
+                <div class="chart-box chart-box--pie"><canvas id="customerStatusChart"></canvas></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Jira/Ticket grafikler -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <div class="card chart-card p-3 h-100">
+                <h5 class="text-primary mb-3">Jira Durumu (Seçili Ay)</h5>
+                <div class="chart-box"><canvas id="jiraStatusChart"></canvas></div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card chart-card p-3 h-100">
+                <h5 class="text-primary mb-3">Ticket Durumu (Seçili Ay)</h5>
+                <div class="chart-box"><canvas id="ticketStatusChart"></canvas></div>
             </div>
         </div>
     </div>
@@ -310,7 +370,7 @@
     <!-- Ticketlar Tablosu -->
     <div class="card chart-card mb-4">
         <div class="card-header bg-light fw-bold text-primary">
-            🎟️ Sistem Ticketları (@Model.Tickets.Count)
+            Sistem Ticketları (@Model.Tickets.Count)
         </div>
         <div class="card-body">
             @if (!Model.Tickets.Any())
@@ -339,7 +399,7 @@
                                 <th>#</th>
                                 <th>Müşteri Web Sitesi</th>
                                 <th>Yazılımcı</th>
-                                <th>📧 Mail</th>
+                                <th>Mail</th>
                                 <th>Teknoloji</th>
                                 <th>Durum</th>
                                 <th>Oluşturan</th>
@@ -369,7 +429,7 @@
                                         @if (!string.IsNullOrWhiteSpace(ticket.Mail))
                                         {
                                             <a href="mailto:@ticket.Mail" class="text-decoration-none">
-                                                <i class="bi bi-envelope"></i> @(ticket.Mail.Length > 20 ? ticket.Mail.Substring(0, 20) + "..." : ticket.Mail)
+                                                @(ticket.Mail.Length > 20 ? ticket.Mail.Substring(0, 20) + "..." : ticket.Mail)
                                             </a>
                                         }
                                         else
@@ -405,9 +465,7 @@
     <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.print.min.js"></script>
 
     <script>
-
         $(document).ready(function () {
-
             function escapeHtml(value) {
                 return String(value ?? '')
                     .replace(/&/g, '&amp;')
@@ -422,12 +480,10 @@
                 const emptyLabel = emptyText ?? 'Tümü';
 
                 $select.empty().append(`<option value="">${escapeHtml(emptyLabel)}</option>`);
-
                 (items ?? []).forEach(function (x) {
                     const val = escapeHtml(x);
                     $select.append(`<option value="${val}">${val}</option>`);
                 });
-
                 $select.val(current);
             }
 
@@ -451,16 +507,28 @@
                 deferRender: true,
                 pageLength: 25,
                 lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]],
+                dom: "<'row mb-2'<'col-12 col-md-6'B><'col-12 col-md-6'f>>" +
+                     "<'row'<'col-12'tr>>" +
+                     "<'row mt-2'<'col-12 col-md-5'i><'col-12 col-md-7'p>>",
+                buttons: [
+                    {
+                        extend: 'excelHtml5',
+                        text: 'Excel',
+                        className: 'btn btn-success btn-sm',
+                        title: 'Musteriler',
+                        exportOptions: { columns: [1, 2, 3, 4, 5, 6, 7, 8, 9] }
+                    }
+                ],
                 language: {
                     search: "Firma Ara:",
-                    searchPlaceholder: "Firma adı yazın..."
+                    searchPlaceholder: "Firma adı yazın...",
+                    url: "https://cdn.datatables.net/plug-ins/1.13.7/i18n/tr.json"
                 },
                 ajax: {
                     url: '/Musteri/Data',
                     type: 'GET',
                     data: function (d) {
                         d.firma = d.search?.value ?? '';
-
                         d.durum = $('#filterDurum').val();
                         d.teknoloji = $('#filterTeknoloji').val();
                         d.talepSahibi = $('#filterTalep').val();
@@ -479,7 +547,7 @@
                         render: function (data) {
                             if (!data) return '';
                             const url = escapeHtml(data);
-                            return `<a href="${url}" target="_blank" class="text-decoration-none site-link">🔗 Site</a>`;
+                            return `<a href="${url}" target="_blank" class="text-decoration-none site-link">Site</a>`;
                         }
                     },
                     {
@@ -515,8 +583,8 @@
                         render: function (row) {
                             return `
                                 <div class="btn-group btn-group-sm">
-                                    <button type="button" class="btn btn-outline-warning edit-btn" data-id="${row.musteriID}">✏️</button>
-                                    <button type="button" class="btn btn-outline-danger delete-btn" data-id="${row.musteriID}">❌</button>
+                                    <button type="button" class="btn btn-outline-warning edit-btn" data-id="${row.musteriID}">Düzenle</button>
+                                    <button type="button" class="btn btn-outline-danger delete-btn" data-id="${row.musteriID}">Sil</button>
                                 </div>`;
                         }
                     }
@@ -529,108 +597,19 @@
                 table.ajax.reload(null, true);
             });
 
-            $(document).on('click', 'a.site-link', function (e) {
-                e.stopPropagation();
-            });
+            $(document).on('click', 'a.site-link', function (e) { e.stopPropagation(); });
 
-            $(document).on('click', '#musteriTable tbody tr', function (e) {
-                if ($(e.target).closest('button').length) return;
-
-                const row = table.row(this).data();
-                if (!row) return;
-
-                const id = row.musteriID;
-
-                $('#musteriTable tr').removeClass('table-primary');
-                $(this).addClass('table-primary');
-
-                $('#selectedInfo').show().html(`<strong>Seçilen Müşteri:</strong> ${escapeHtml(row.firma)}`);
-
-                fetch(`/Detay/GetDetaylar?musteriId=${id}`)
-                    .then(r => r.text())
-                    .then(html => {
-                        $("#detayContainer").hide().html(html).slideDown(250);
-                    });
-            });
-
-            $(document).on('click', '.edit-btn', function (e) {
-                e.stopPropagation();
-
-                const id = Number($(this).data('id'));
-                if (!id) return;
-
-                fetch(`/Detay/GetMusteri?id=${id}`)
-                    .then(r => r.json())
-                    .then(m => {
-                        $('#editMusteriId').val(m.musteriID);
-                        $('#editFirma').val(m.firma);
-                        $('#editFirmaYetkilisi').val(m.firmaYetkilisi);
-                        $('#editTelefon').val(m.telefon);
-                        $('#editSiteUrl').val(m.siteUrl);
-                        $('#editTeknoloji').val(m.teknoloji);
-                        $('#editDurum').val(m.durum);
-                        $('#editTalepSahibi').val(m.talepSahibi);
-                        $('#editAciklama').val(m.aciklama);
-
-                        $('#editMusteriModal').modal('show');
-                    });
-            });
-
-            $('#editMusteriForm').submit(function (e) {
-                e.preventDefault();
-
-                const formData = new FormData(this);
-
-                fetch('/Detay/UpdateMusteri', {
-                    method: 'POST',
-                    body: formData
-                })
-                    .then(r => r.json())
-                    .then(d => {
-                        alert(d.message);
-                        if (d.success) {
-                            $('#editMusteriModal').modal('hide');
-                            table.ajax.reload(null, false);
-                            loadFilters();
-                        }
-                    });
-            });
-
-            $(document).on('click', '.delete-btn', function (e) {
-                e.stopPropagation();
-
-                const id = Number($(this).data('id'));
-                if (!id) return;
-
-                if (!confirm("Silinsin mi?")) return;
-
-                fetch(`/Detay/DeleteMusteri/${id}`, { method: 'DELETE' })
-                    .then(r => r.json())
-                    .then(d => {
-                        alert(d.message);
-                        if (d.success) {
-                            table.ajax.reload(null, false);
-                            loadFilters();
-                        }
-                    });
-            });
-
+            $("#motivasyonMetni").text("Hoşgeldiniz!");
         });
 
-
-
-
-        // 🕓 Saat ve mesaj
         function guncelleSaat() {
             const now = new Date();
-            $("#saatTarih").html(`🕓 ${now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })} | 📅 ${now.toLocaleDateString('tr-TR')}`);
+            $("#saatTarih").html(`${now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })} | ${now.toLocaleDateString('tr-TR')}`);
         }
         setInterval(guncelleSaat, 1000);
         guncelleSaat();
-        $("#motivasyonMetni").text("Hoşgeldiniz!");
 
-        // 📊 Chart.js - Müşteri Aylık
-        const customerChart = new Chart(document.getElementById('customerChart'), {
+        new Chart(document.getElementById('customerChart'), {
             type: 'line',
             data: {
                 labels: @Html.Raw(Json.Serialize(Model.AyEtiketleri)),
@@ -645,20 +624,11 @@
                 }]
             },
             options: {
-                scales: {
-                    y: {
-                        beginAtZero: true
-                    }
-                },
-                plugins: {
-                    legend: {
-                        display: false
-                    }
-                }
+                scales: { y: { beginAtZero: true } },
+                plugins: { legend: { display: false } }
             }
         });
 
-        // Müşteri Durum Pie (dinamik: Aktif/Pasif/Beklemede/...)
         new Chart(document.getElementById('customerStatusChart'), {
             type: 'pie',
             data: {
@@ -666,20 +636,19 @@
                 datasets: [{
                     data: @Html.Raw(Json.Serialize(Model.MusteriDurumSayilari)),
                     backgroundColor: ['#28a745', '#6c757d', '#ffc107', '#0d6efd', '#dc3545', '#20c997'],
-                    borderWidth: 2,
-                    borderColor: '#fff'
+                    borderWidth: 4,
+                    borderColor: '#fff',
+                    hoverOffset: 10
                 }]
             },
             options: {
-                plugins: {
-                    legend: {
-                        position: 'bottom'
-                    }
-                }
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom' } }
             }
         });
 
-        // Jira Durum Doughnut
+        // Jira Durumu (seçili ay)
         new Chart(document.getElementById('jiraStatusChart'), {
             type: 'doughnut',
             data: {
@@ -692,16 +661,12 @@
                 }]
             },
             options: {
-                plugins: {
-                    legend: {
-                        position: 'bottom'
-                    }
-                },
+                plugins: { legend: { position: 'bottom' } },
                 cutout: '70%'
             }
         });
 
-        // Ticket Durum Bar Grafiği
+        // Ticket Durumu (seçili ay)
         new Chart(document.getElementById('ticketStatusChart'), {
             type: 'bar',
             data: {
@@ -715,76 +680,34 @@
                 }]
             },
             options: {
-                plugins: {
-                    legend: {
-                        display: true,
-                        position: 'top'
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true
-                    }
-                }
+                plugins: { legend: { display: true, position: 'top' } },
+                scales: { y: { beginAtZero: true } }
             }
         });
 
-        // 📋 DataTable - Müşteriler (sadece veri varsa)
-        @if (Model.Musteriler.Any())
-        {
-                                <text>
-                            const table = $('#musteriTable').DataTable({
-                                order: [[8, "desc"]],
-                                responsive: true,
-                                dom: 'Bfrtip',
-                                buttons: [
-                                    { extend: 'excelHtml5', text: '📗 Excel', className: 'btn btn-success btn-sm' },
-                                    { extend: 'pdfHtml5', text: '📕 PDF', className: 'btn btn-danger btn-sm' },
-                                    { extend: 'print', text: '🖨️ Yazdır', className: 'btn btn-primary btn-sm' }
-                                ],
-                                language: {
-                                    url: "https://cdn.datatables.net/plug-ins/1.13.7/i18n/tr.json"
-                                }
-                            });
-
-                            // 🔍 Müşteri firması arama
-                            $('#firmaSearch').on('keyup', function () {
-                                table.column(1).search(this.value, true, false).draw();
-                            });
-
-                            $('#firmaSearch').on('keypress', function (e) {
-                                if (e.which === 13) e.preventDefault();
-                            });
-                                </text>
-        }
-
-        // 📋 DataTable - Ticketlar (sadece veri varsa)
         @if (Model.Tickets.Any())
         {
-                                <text>
-                            const ticketTable = $('#ticketTable').DataTable({
-                                order: [[7, "desc"]],
-                                responsive: true,
-                                dom: 'Bfrtip',
-                                buttons: [
-                                    { extend: 'excelHtml5', text: '📗 Excel', className: 'btn btn-success btn-sm' },
-                                    { extend: 'pdfHtml5', text: '📕 PDF', className: 'btn btn-danger btn-sm' },
-                                    { extend: 'print', text: '🖨️ Yazdır', className: 'btn btn-primary btn-sm' }
-                                ],
-                                language: {
-                                    url: "https://cdn.datatables.net/plug-ins/1.13.7/i18n/tr.json"
-                                }
-                            });
+                <text>
+                const ticketTable = $('#ticketTable').DataTable({
+                    order: [[7, "desc"]],
+                    responsive: true,
+                    dom: 'Bfrtip',
+                    buttons: [
+                        { extend: 'excelHtml5', text: 'Excel', className: 'btn btn-success btn-sm' },
+                        { extend: 'pdfHtml5', text: 'PDF', className: 'btn btn-danger btn-sm' },
+                        { extend: 'print', text: 'Yazdır', className: 'btn btn-primary btn-sm' }
+                    ],
+                    language: { url: "https://cdn.datatables.net/plug-ins/1.13.7/i18n/tr.json" }
+                });
 
-                            // 🔍 Ticket arama
-                            $('#ticketSearch').on('keyup', function () {
-                                ticketTable.column(1).search(this.value, true, false).draw();
-                            });
+                $('#ticketSearch').on('keyup', function () {
+                    ticketTable.column(1).search(this.value, true, false).draw();
+                });
 
-                            $('#ticketSearch').on('keypress', function (e) {
-                                if (e.which === 13) e.preventDefault();
-                            });
-                                </text>
+                $('#ticketSearch').on('keypress', function (e) {
+                    if (e.which === 13) e.preventDefault();
+                });
+                </text>
         }
     </script>
 }

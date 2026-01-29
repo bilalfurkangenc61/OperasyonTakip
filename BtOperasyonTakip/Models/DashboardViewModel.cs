@@ -18,20 +18,27 @@ namespace BtOperasyonTakip.Models
         public int JiraAktif { get; set; }
         public int JiraTamamlandi { get; set; }
 
-        // YENİ: Ticket İstatistikleri
         public int TicketOnaybekleniyor { get; set; }
         public int TicketOnaylandi { get; set; }
         public int TicketReddedildi { get; set; }
         public int ToplamTicket { get; set; }
 
-        // YENİ: Müşteri durum grafiği (dinamik)
         public List<string> MusteriDurumEtiketleri { get; set; } = new();
         public List<int> MusteriDurumSayilari { get; set; } = new();
 
         public List<Musteri> Musteriler { get; set; } = new();
         public List<JiraTask> JiraTasks { get; set; } = new();
-        public List<Ticket> Tickets { get; set; } = new(); // YENİ
-
+        public List<Ticket> Tickets { get; set; } = new();
         public List<ToplantiNotu> ToplantiNotlari { get; set; } = new();
+
+        // === YENİ: Hata (aylık) ===
+        public int SeciliAy { get; set; }
+        public int SeciliYil { get; set; }
+        public List<(int Year, int Month, string Label)> AySecenekleri { get; set; } = new();
+
+        public int HataToplamSeciliAy { get; set; }
+        public int HataAcikSeciliAy { get; set; }
+        public int HataBeklemedeSeciliAy { get; set; }
+        public int HataKapaliSeciliAy { get; set; }
     }
 }

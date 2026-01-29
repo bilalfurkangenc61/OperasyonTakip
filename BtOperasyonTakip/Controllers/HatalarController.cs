@@ -3,6 +3,8 @@ using BtOperasyonTakip.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Globalization;
+using System.Text;
 
 namespace BtOperasyonTakip.Controllers
 {
@@ -16,10 +18,10 @@ namespace BtOperasyonTakip.Controllers
             _context = context;
         }
 
-        // 📌 HATA LİSTE + ARAMA + FİLTRE
-        public async Task<IActionResult> Index(string q, string durum, string kategori)
+        // period format: "yyyy-MM" (örn: 2026-01)
+        public async Task<IActionResult> Index(string q, string durum, string kategori, string? period)
         {
-            var query = _context.Hatalar.AsQueryable();
+            IQueryable<Hata> query = _context.Hatalar.AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(q))
             {
@@ -35,6 +37,9 @@ namespace BtOperasyonTakip.Controllers
             if (!string.IsNullOrWhiteSpace(kategori))
                 query = query.Where(h => h.KategoriBilgisi == kategori);
 
+            if (TryParsePeriod(period, out var start, out var end))
+                query = query.Where(h => h.OlusturmaTarihi >= start && h.OlusturmaTarihi < end);
+
             var hatalar = await query
                 .OrderByDescending(h => h.OlusturmaTarihi)
                 .ToListAsync();
@@ -48,8 +53,102 @@ namespace BtOperasyonTakip.Controllers
             ViewBag.Q = q;
             ViewBag.Durum = durum;
             ViewBag.Kategori = kategori;
+            ViewBag.Period = period;
 
             return View(hatalar);
+        }
+
+        // Excel (paketsiz): CSV indir (Excel açar)
+        [HttpGet]
+        public async Task<IActionResult> ExportExcel(string q, string durum, string kategori, string? period)
+        {
+            IQueryable<Hata> query = _context.Hatalar.AsNoTracking();
+
+            if (!string.IsNullOrWhiteSpace(q))
+            {
+                query = query.Where(h =>
+                    h.HataAdi.Contains(q) ||
+                    h.HataAciklama.Contains(q) ||
+                    h.OlusturanKullaniciAdi.Contains(q));
+            }
+
+            if (!string.IsNullOrWhiteSpace(durum))
+                query = query.Where(h => h.Durum == durum);
+
+            if (!string.IsNullOrWhiteSpace(kategori))
+                query = query.Where(h => h.KategoriBilgisi == kategori);
+
+            if (TryParsePeriod(period, out var start, out var end))
+                query = query.Where(h => h.OlusturmaTarihi >= start && h.OlusturmaTarihi < end);
+
+            var data = await query
+                .OrderByDescending(h => h.OlusturmaTarihi)
+                .ToListAsync();
+
+            var sb = new StringBuilder();
+
+            // BOM: Excel'in UTF-8 Türkçe karakterleri doğru açması için
+            sb.Append('\uFEFF');
+
+            // Başlık
+            sb.AppendLine(string.Join(';', new[]
+            {
+                "Hata",
+                "Açıklama",
+                "Kategori",
+                "Bildiren",
+                "Durum",
+                "Tarih"
+            }));
+
+            foreach (var h in data)
+            {
+                sb.AppendLine(string.Join(';', new[]
+                {
+                    CsvEscape(h.HataAdi),
+                    CsvEscape(h.HataAciklama),
+                    CsvEscape(h.KategoriBilgisi),
+                    CsvEscape(h.OlusturanKullaniciAdi),
+                    CsvEscape(h.Durum),
+                    CsvEscape(h.OlusturmaTarihi.ToString("dd.MM.yyyy HH:mm", CultureInfo.GetCultureInfo("tr-TR")))
+                }));
+            }
+
+            var bytes = Encoding.UTF8.GetBytes(sb.ToString());
+            var safePeriod = string.IsNullOrWhiteSpace(period) ? "tum-aylar" : period;
+            var fileName = $"hatalar_{safePeriod}_{DateTime.Now:yyyyMMdd_HHmm}.csv";
+
+            return File(bytes, "text/csv; charset=utf-8", fileName);
+        }
+
+        private static string CsvEscape(string? value)
+        {
+            value ??= "";
+            // CSV ayırıcı ";" olduğundan; ;, " veya satır sonu varsa tırnakla
+            var mustQuote = value.Contains(';') || value.Contains('"') || value.Contains('\n') || value.Contains('\r');
+            value = value.Replace("\"", "\"\"");
+            return mustQuote ? $"\"{value}\"" : value;
+        }
+
+        private static bool TryParsePeriod(string? period, out DateTime start, out DateTime end)
+        {
+            start = default;
+            end = default;
+
+            if (string.IsNullOrWhiteSpace(period))
+                return false;
+
+            if (!DateTime.TryParseExact(
+                    period.Trim(),
+                    "yyyy-MM",
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.None,
+                    out var dt))
+                return false;
+
+            start = new DateTime(dt.Year, dt.Month, 1);
+            end = start.AddMonths(1);
+            return true;
         }
 
         [HttpGet]
@@ -61,7 +160,6 @@ namespace BtOperasyonTakip.Controllers
         [HttpPost]
         public IActionResult Yeni(Hata h)
         {
-            // Formdan GELMEYEN non-nullable alanları validate dışına al
             ModelState.Remove("OperasyonCevabi");
             ModelState.Remove("CevaplayanKullaniciAdi");
             ModelState.Remove("CevaplaamaTarihi");
@@ -85,7 +183,6 @@ namespace BtOperasyonTakip.Controllers
             return RedirectToAction("Index");
         }
 
-        // 📌 HATA EKLE
         [HttpPost]
         public async Task<IActionResult> Create(string hataAdi, string hataAciklama, string kategori, int? mevcutHataId)
         {
@@ -112,7 +209,6 @@ namespace BtOperasyonTakip.Controllers
             return RedirectToAction("Index");
         }
 
-        // 📌 HATA DETAY
         public async Task<IActionResult> Detay(int id)
         {
             var hata = await _context.Hatalar.FindAsync(id);
@@ -120,7 +216,6 @@ namespace BtOperasyonTakip.Controllers
             return View(hata);
         }
 
-        // 📌 OPERASYON CEVAP
         [HttpPost]
         public async Task<IActionResult> Cevapla(int id, string cevap, string durum)
         {

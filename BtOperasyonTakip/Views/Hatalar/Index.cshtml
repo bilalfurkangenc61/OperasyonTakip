@@ -7,19 +7,23 @@
 <div class="container mt-5">
     <h2>Hatalar</h2>
 
-    <div class="d-flex justify-content-end mb-3">
+    <div class="d-flex justify-content-end mb-3 gap-2">
+        <a class="btn btn-outline-success"
+           href="@Url.Action("ExportExcel", "Hatalar", new { q = ViewBag.Q, durum = ViewBag.Durum, kategori = ViewBag.Kategori, period = ViewBag.Period })">
+            Excel'e İndir
+        </a>
+
         <a href="/Hatalar/Yeni" class="btn btn-primary">
             ➕ Yeni Hata Ekle
         </a>
     </div>
 
-    <!-- 🔍 ARAMA & FİLTRE FORMU -->
     <form method="get" class="row g-2 mb-3">
-        <div class="col-md-4">
+        <div class="col-md-3">
             <input type="text" name="q" value="@ViewBag.Q" class="form-control" placeholder="Hata adı veya açıklama ara..." />
         </div>
 
-        <div class="col-md-3">
+        <div class="col-md-2">
             <select name="durum" class="form-control">
                 <option value="">Tüm Durumlar</option>
                 <option value="Açık" selected="@(ViewBag.Durum == "Açık")">Açık</option>
@@ -28,7 +32,7 @@
             </select>
         </div>
 
-        <div class="col-md-3">
+        <div class="col-md-2">
             <select name="kategori" class="form-control">
                 <option value="">Tüm Kategoriler</option>
                 <option value="Yazılım" selected="@(ViewBag.Kategori == "Yazılım")">Yazılım</option>
@@ -39,12 +43,15 @@
             </select>
         </div>
 
-        <div class="col-md-2 d-grid">
+        <div class="col-md-2">
+            <input type="month" name="period" value="@ViewBag.Period" class="form-control" />
+        </div>
+
+        <div class="col-md-3 d-grid">
             <button class="btn btn-secondary">Filtrele</button>
         </div>
     </form>
 
-    <!-- HATA LİSTESİ -->
     <table class="table table-hover table-sm">
         <thead class="table-light">
             <tr>
