@@ -114,18 +114,47 @@ namespace BtOperasyonTakip.Controllers
                 ayEtiketleri.Add(ay.ToString("MMMM yyyy", tr));
             }
 
-            // Müşteri Durumu: seçili ayda kaydı olan müşterilerin durum dağılımı
+            // === Müşteri Durumu: Parametreler(Tur="Durum") etiketleri + seçili ayda eklenen müşterilerden sayım ===
+            var paramDurumlar = _context.Parametreler
+                .Where(p => p.Tur == "Durum" && p.ParAdi != null && p.ParAdi != "")
+                .OrderBy(p => p.ParAdi)
+                .Select(p => p.ParAdi!)
+                .ToList();
+
+            // Seçili ayda kayıt olan müşteriler
             var musterilerSeciliAy = musteriler
                 .Where(m => m.KayitTarihi.HasValue &&
                             m.KayitTarihi.Value >= seciliAyBaslangic &&
                             m.KayitTarihi.Value < seciliAyBitis)
                 .ToList();
 
-            var musteriDurumGruplari = musterilerSeciliAy
-                .GroupBy(m => (m.Durum ?? "Bilinmiyor").Trim())
-                .Select(g => new { Durum = g.Key, Sayi = g.Count() })
-                .OrderByDescending(x => x.Sayi)
-                .ToList();
+            // Seçili ay müşteri durum sayacı (db’de ne varsa)
+            var durumSayac = musterilerSeciliAy
+                .GroupBy(m => string.IsNullOrWhiteSpace(m.Durum) ? "" : m.Durum.Trim())
+                .ToDictionary(g => g.Key, g => g.Count(), StringComparer.OrdinalIgnoreCase);
+
+            // Her parametre durumu tek tek göster (0 olsa bile)
+            var musteriDurumEtiketleri = new List<string>();
+            var musteriDurumSayilari = new List<int>();
+
+            foreach (var d in paramDurumlar)
+            {
+                musteriDurumEtiketleri.Add(d);
+                musteriDurumSayilari.Add(durumSayac.TryGetValue(d, out var c) ? c : 0);
+            }
+
+            // Parametrelerde olmayan durumlar varsa "Diğer" olarak ekle (seçili ay için)
+            var otherCount = durumSayac
+                .Where(kvp =>
+                    !string.IsNullOrWhiteSpace(kvp.Key) &&
+                    !paramDurumlar.Contains(kvp.Key, StringComparer.OrdinalIgnoreCase))
+                .Sum(kvp => kvp.Value);
+
+            if (otherCount > 0)
+            {
+                musteriDurumEtiketleri.Add("Diğer");
+                musteriDurumSayilari.Add(otherCount);
+            }
 
             // Hatalar: seçili aya göre
             var hatalarSeciliAy = hatalar
@@ -156,15 +185,15 @@ namespace BtOperasyonTakip.Controllers
                 TicketReddedildi = ticketReddedildi,
                 ToplamTicket = tickets.Count,
 
-                MusteriDurumEtiketleri = musteriDurumGruplari.Select(x => x.Durum).ToList(),
-                MusteriDurumSayilari = musteriDurumGruplari.Select(x => x.Sayi).ToList(),
+                // Müşteri Durumu (aylık + parametre bazlı, her durum ayrı)
+                MusteriDurumEtiketleri = musteriDurumEtiketleri,
+                MusteriDurumSayilari = musteriDurumSayilari,
 
                 Musteriler = musteriler
                     .OrderByDescending(m => m.KayitTarihi ?? DateTime.MinValue)
                     .Take(10)
                     .ToList(),
 
-                // İstersen burada da seçili ayın Jira/Ticket listesini gösterebilirsin.
                 JiraTasks = jiraTasksAll
                     .OrderByDescending(t => t.OlusturmaTarihi)
                     .Take(10)

@@ -1,4 +1,5 @@
 ﻿using System.Globalization;
+using System.Text;
 using BtOperasyonTakip.Data;
 using BtOperasyonTakip.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -132,6 +133,96 @@ public sealed class MusteriController : Controller
             recordsFiltered,
             data = page
         });
+    }
+
+    // SEÇİLİ AYIN TÜM MÜŞTERİLERİNİ EXCEL'E UYUMLU TSV (Unicode) OLARAK İNDİRİR
+    [HttpGet("/Musteri/ExportExcelByMonth")]
+    public async Task<IActionResult> ExportExcelByMonth(string? month)
+    {
+        if (string.IsNullOrWhiteSpace(month))
+            return BadRequest("Ay bilgisi zorunlu. Örn: 2026-02");
+
+        if (!DateTime.TryParseExact(month.Trim(), "yyyy-MM", CultureInfo.InvariantCulture, DateTimeStyles.None, out var monthStart))
+            return BadRequest("Geçersiz ay formatı. Örn: 2026-02");
+
+        var start = new DateTime(monthStart.Year, monthStart.Month, 1, 0, 0, 0);
+        var end = start.AddMonths(1);
+
+        var rows = await _context.Musteriler
+            .AsNoTracking()
+            .Where(x => x.KayitTarihi != null &&
+                        x.KayitTarihi.Value >= start &&
+                        x.KayitTarihi.Value < end)
+            .OrderByDescending(x => x.KayitTarihi)
+            .ThenByDescending(x => x.MusteriID)
+            .Select(x => new
+            {
+                x.MusteriID,
+                x.Firma,
+                x.FirmaYetkilisi,
+                x.Telefon,
+                x.SiteUrl,
+                x.Teknoloji,
+                x.Durum,
+                x.TalepSahibi,
+                x.KayitTarihi,
+                x.Aciklama
+            })
+            .ToListAsync();
+
+        const char sep = '\t'; // TAB => Excel kolonlara düzgün böler
+
+        static string NormalizeCell(string? s)
+        {
+            var v = (s ?? "")
+                .Replace("\r\n", "\n")
+                .Replace("\r", "\n")
+                .Replace("\n", " ");
+
+            // Excel formula injection riskine karşı
+            if (v.Length > 0 && (v[0] == '=' || v[0] == '+' || v[0] == '-' || v[0] == '@'))
+                v = "'" + v;
+
+            // TSV'de tab karakteri hücreyi böler; içeride varsa boşluğa çevir
+            v = v.Replace("\t", " ");
+            return v;
+        }
+
+        var sb = new StringBuilder();
+
+        sb.Append("ID").Append(sep)
+          .Append("Firma").Append(sep)
+          .Append("Yetkili").Append(sep)
+          .Append("Telefon").Append(sep)
+          .Append("SiteUrl").Append(sep)
+          .Append("Teknoloji").Append(sep)
+          .Append("Durum").Append(sep)
+          .Append("TalepSahibi").Append(sep)
+          .Append("KayitTarihi").Append(sep)
+          .Append("Aciklama")
+          .Append("\r\n");
+
+        foreach (var r in rows)
+        {
+            sb.Append(NormalizeCell(r.MusteriID.ToString(CultureInfo.InvariantCulture))).Append(sep)
+              .Append(NormalizeCell(r.Firma)).Append(sep)
+              .Append(NormalizeCell(r.FirmaYetkilisi)).Append(sep)
+              .Append(NormalizeCell(r.Telefon)).Append(sep)
+              .Append(NormalizeCell(r.SiteUrl)).Append(sep)
+              .Append(NormalizeCell(r.Teknoloji)).Append(sep)
+              .Append(NormalizeCell(r.Durum)).Append(sep)
+              .Append(NormalizeCell(r.TalepSahibi)).Append(sep)
+              .Append(NormalizeCell(r.KayitTarihi?.ToString("dd.MM.yyyy") ?? "-")).Append(sep)
+              .Append(NormalizeCell(r.Aciklama))
+              .Append("\r\n");
+        }
+
+        // Excel için çok stabil: UTF-16LE (Unicode) + BOM
+        var unicode = new UnicodeEncoding(bigEndian: false, byteOrderMark: true);
+        var bytes = unicode.GetBytes(sb.ToString());
+
+        var fileName = $"Musteriler_{start:yyyy_MM}.xls";
+        return File(bytes, "application/vnd.ms-excel", fileName);
     }
 
     private static bool TryParseTrDate(string? input, out DateTime result)

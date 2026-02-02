@@ -76,6 +76,17 @@
                     </select>
                 </div>
 
+                <div class="col-md-2">
+                    <label class="form-label">Excel Ay</label>
+                    <input id="exportMonth" type="month" class="form-control" />
+                </div>
+
+                <div class="col-md-1 d-grid">
+                    <button id="btnExportMonth" type="button" class="btn btn-success">
+                        Excel
+                    </button>
+                </div>
+
             </div>
         </div>
     </div>
@@ -304,6 +315,25 @@
             });
 
             loadFilters();
+
+            // Varsayılan ay: içinde bulunduğumuz ay
+            if (!$('#exportMonth').val()) {
+                const now = new Date();
+                const mm = String(now.getMonth() + 1).padStart(2, '0');
+                $('#exportMonth').val(`${now.getFullYear()}-${mm}`);
+            }
+
+            $('#btnExportMonth').on('click', function () {
+                const month = String($('#exportMonth').val() ?? '').trim();
+                if (!month) {
+                    alert('Lütfen bir ay seçin.');
+                    return;
+                }
+
+                // DİKKAT: Export endpoint'i
+                const url = `/Musteri/ExportExcelByMonth?month=${encodeURIComponent(month)}`;
+                window.location.href = url;
+            });
 
             $('#filterDurum, #filterTeknoloji, #filterTalep').on('change', function () {
                 table.ajax.reload(null, true);
