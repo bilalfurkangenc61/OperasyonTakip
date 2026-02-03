@@ -81,10 +81,15 @@
                     @foreach (var ticket in Model)
                     {
                         var status = ticket.Durum?.Trim() ?? "";
-                        var statusBadgeClass = status.Contains("Onay Bekleniyor", StringComparison.OrdinalIgnoreCase) ? "bg-warning text-dark"
-                        : status.Contains("Onaylandi", StringComparison.OrdinalIgnoreCase) ? "bg-success"
+                        var statusBadgeClass =
+                        status.Contains("Onay Bekleniyor", StringComparison.OrdinalIgnoreCase) ? "bg-warning text-dark"
+                        : status.Contains("Kaydedildi", StringComparison.OrdinalIgnoreCase) ? "bg-success"
                         : status.Contains("Reddedildi", StringComparison.OrdinalIgnoreCase) ? "bg-danger"
                         : "bg-secondary";
+
+                        var isOp1 = string.Equals(status, "Operasyon 1 Onay Bekleniyor", StringComparison.OrdinalIgnoreCase);
+                        var isOp2 = string.Equals(status, "Operasyon 2 Onay Bekleniyor", StringComparison.OrdinalIgnoreCase);
+                        var isSahaCanli = string.Equals(status, "Saha Canli Bekleniyor", StringComparison.OrdinalIgnoreCase);
 
                         <tr>
                             <td><strong>@ticket.Id</strong></td>
@@ -114,7 +119,7 @@
                             <td><span class="badge @statusBadgeClass">@ticket.Durum</span></td>
                             <td>@ticket.OlusturanKullaniciAdi</td>
                             <td>@ticket.OlusturmaTarihi.ToString("dd.MM.yyyy HH:mm")</td>
-                            <td>
+                            <td style="min-width: 170px;">
                                 <button type="button" class="btn btn-sm btn-info view-detail-btn"
                                         data-ticket-id="@ticket.Id"
                                         data-bs-toggle="modal"
@@ -125,13 +130,33 @@
                                     <i class="bi bi-eye"></i>
                                 </button>
 
-                                @if (User.IsInRole("Operasyon") && string.Equals(status, "Operasyon Onayı Bekleniyor", StringComparison.OrdinalIgnoreCase))
+                                @* Operasyon 1 *@
+                                @if (User.IsInRole("Operasyon") && isOp1)
                                 {
-                                    <button type="button" class="btn btn-sm btn-success approve-btn" data-id="@ticket.Id">
+                                    <button type="button" class="btn btn-sm btn-success op1-yes-btn" data-id="@ticket.Id" title="Entegre olabiliyoruz">
                                         <i class="bi bi-check-circle"></i>
                                     </button>
-                                    <button type="button" class="btn btn-sm btn-danger reject-btn" data-id="@ticket.Id">
+                                    <button type="button" class="btn btn-sm btn-danger op1-no-btn" data-id="@ticket.Id" title="Entegre olamıyoruz">
                                         <i class="bi bi-x-circle"></i>
+                                    </button>
+                                }
+
+                                @* Operasyon 2 *@
+                                @if (User.IsInRole("Operasyon") && isOp2)
+                                {
+                                    <button type="button" class="btn btn-sm btn-success op2-mail-yes-btn" data-id="@ticket.Id" title="Mail gönderdim: Evet">
+                                        <i class="bi bi-envelope-check"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-secondary op2-mail-no-btn" data-id="@ticket.Id" title="Mail gönderdim: Hayır">
+                                        <i class="bi bi-envelope-x"></i>
+                                    </button>
+                                }
+
+                                @* Saha: canlı açtım *@
+                                @if (User.IsInRole("Saha") && isSahaCanli)
+                                {
+                                    <button type="button" class="btn btn-sm btn-primary saha-canli-btn" data-id="@ticket.Id" title="Canlı ortamı açtım">
+                                        <i class="bi bi-broadcast"></i>
                                     </button>
                                 }
                             </td>
@@ -152,8 +177,6 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <!-- mevcut alanlar... -->
-                <!-- Uyum bilgisi -->
                 <div id="uyumDiv" class="row mb-3" style="display:none;">
                     <div class="col-12">
                         <label class="fw-bold">🛡️ Uyum Onayı:</label>
@@ -164,7 +187,6 @@
                         </div>
                     </div>
                 </div>
-
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Kapat</button>
@@ -175,8 +197,10 @@
 
 @section Scripts {
     <script>
-        // Detay modal: uyum alanları
         $(document).on("click", ".view-detail-btn", function () {
+            const ticketId = $(this).data("ticket-id");
+            $("#modalTicketId").text(ticketId || "");
+
             const uyumOnaylayan = $(this).data("uyum-onaylayan") || "";
             const uyumTarih = $(this).data("uyum-tarih") || "";
             const uyumAciklama = $(this).data("uyum-aciklama") || "";
@@ -191,46 +215,86 @@
             }
         });
 
-        // Operasyon: Onay
-        $(document).on("click", ".approve-btn", async function () {
-            const id = Number($(this).data("id"));
-            const teknolojiBilgisi = (prompt("Teknoloji seçiniz / giriniz:", "") || "").trim();
-            if (!teknolojiBilgisi) return;
+        async function postJson(url, payload) {
+            const res = await fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
 
-            const kararAciklamasi = (prompt("Karar açıklaması (opsiyonel):", "") || "").trim();
+            let data = null;
+            try { data = await res.json(); } catch { }
+            if (!res.ok) throw new Error(data?.message || ("HTTP " + res.status));
+            return data;
+        }
+
+        // Operasyon 1 => Entegre olabiliyoruz
+        $(document).on("click", ".op1-yes-btn", async function () {
+            const id = Number($(this).data("id"));
+            const not = (prompt("Operasyon 1 not (opsiyonel):", "") || "").trim();
 
             try {
-                const res = await fetch("@Url.Action("ApproveWithTechnology", "Ticket")", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ id, teknolojiBilgisi, kararAciklamasi })
-                });
-
-                const data = await res.json();
-                alert(data.message || "İşlem tamamlandı.");
-                if (data.success) location.reload();
+                const data = await postJson("@Url.Action("Operasyon1Decide", "Ticket")", { id, entegreOlabilirMi: true, not });
+                alert(data?.message || "İşlem tamamlandı.");
+                if (data?.success) location.reload();
             } catch (e) {
-                alert("İstek hatası: " + (e?.message || e));
+                alert("Hata: " + (e?.message || e));
             }
         });
 
-        // Operasyon: Red
-        $(document).on("click", ".reject-btn", async function () {
+        // Operasyon 1 => Entegre olamıyoruz (Reddedildi)
+        $(document).on("click", ".op1-no-btn", async function () {
             const id = Number($(this).data("id"));
-            const kararAciklamasi = (prompt("Red açıklaması:", "") || "").trim();
+            const not = (prompt("Entegre olamıyoruz açıklaması:", "") || "").trim();
 
             try {
-                const res = await fetch("@Url.Action("Reject", "Ticket")", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ id, kararAciklamasi })
-                });
-
-                const data = await res.json();
-                alert(data.message || "İşlem tamamlandı.");
-                if (data.success) location.reload();
+                const data = await postJson("@Url.Action("Operasyon1Decide", "Ticket")", { id, entegreOlabilirMi: false, not });
+                alert(data?.message || "İşlem tamamlandı.");
+                if (data?.success) location.reload();
             } catch (e) {
-                alert("İstek hatası: " + (e?.message || e));
+                alert("Hata: " + (e?.message || e));
+            }
+        });
+
+        // Operasyon 2 => Mail gönderdim: Evet
+        $(document).on("click", ".op2-mail-yes-btn", async function () {
+            const id = Number($(this).data("id"));
+            const not = (prompt("Operasyon 2 not (opsiyonel):", "") || "").trim();
+
+            try {
+                const data = await postJson("@Url.Action("Operasyon2Decide", "Ticket")", { id, mailGonderildiMi: true, not });
+                alert(data?.message || "İşlem tamamlandı.");
+                if (data?.success) location.reload();
+            } catch (e) {
+                alert("Hata: " + (e?.message || e));
+            }
+        });
+
+        // Operasyon 2 => Mail gönderdim: Hayır (yine de Saha Canli Bekleniyor)
+        $(document).on("click", ".op2-mail-no-btn", async function () {
+            const id = Number($(this).data("id"));
+            const not = (prompt("Mail gönderilmedi notu (opsiyonel):", "") || "").trim();
+
+            try {
+                const data = await postJson("@Url.Action("Operasyon2Decide", "Ticket")", { id, mailGonderildiMi: false, not });
+                alert(data?.message || "İşlem tamamlandı.");
+                if (data?.success) location.reload();
+            } catch (e) {
+                alert("Hata: " + (e?.message || e));
+            }
+        });
+
+        // Saha => Canlı açtım
+        $(document).on("click", ".saha-canli-btn", async function () {
+            const id = Number($(this).data("id"));
+            const not = (prompt("Canlı açılış notu (opsiyonel):", "") || "").trim();
+
+            try {
+                const data = await postJson("@Url.Action("SahaCanliAcildi", "Ticket")", { id, not });
+                alert(data?.message || "İşlem tamamlandı.");
+                if (data?.success) location.reload();
+            } catch (e) {
+                alert("Hata: " + (e?.message || e));
             }
         });
     </script>

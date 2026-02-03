@@ -21,31 +21,26 @@ namespace BtOperasyonTakip.Controllers
         {
             var userId = int.TryParse(User.FindFirst("UserId")?.Value, out var uid) ? uid : 0;
 
-            // Filtre: Tümü | Bekleyen | Onaylanan | Reddedilen
             var filter = string.IsNullOrWhiteSpace(durumFilter) ? "Bekleyen" : durumFilter.Trim();
-
             var query = _context.Tickets.AsQueryable();
 
-            // Website arama
             if (!string.IsNullOrWhiteSpace(searchWebsite))
-            {
                 query = query.Where(t => t.MusteriWebSitesi.Contains(searchWebsite));
-            }
 
             query = filter switch
             {
-                "Tümü" => query.Where(t => t.Durum == "Uyum Onayı Bekleniyor"
-                                        || t.Durum == "Operasyon Onayı Bekleniyor"
-                                        || t.Durum == "Onaylandi"
-                                        || t.Durum == "Reddedildi"),
+                "Tümü" => query.Where(t =>
+                    t.Durum == "Uyum Onayı Bekleniyor" ||
+                    t.Durum == "Operasyon 2 Onay Bekleniyor" ||
+                    t.Durum == "Saha Canli Bekleniyor" ||
+                    t.Durum == "Musteri Kaydedildi" ||
+                    t.Durum == "Reddedildi"),
 
                 "Bekleyen" => query.Where(t => t.Durum == "Uyum Onayı Bekleniyor"),
 
-                "Onaylanan" => query.Where(t => t.UyumOnaylayanUserId == userId
-                                             && (t.Durum == "Operasyon Onayı Bekleniyor" || t.Durum == "Onaylandi")),
+                "Onaylanan" => query.Where(t => t.UyumOnaylayanUserId == userId && t.Durum != "Uyum Onayı Bekleniyor"),
 
-                "Reddedilen" => query.Where(t => t.UyumOnaylayanUserId == userId
-                                              && t.Durum == "Reddedildi"),
+                "Reddedilen" => query.Where(t => t.UyumOnaylayanUserId == userId && t.Durum == "Reddedildi"),
 
                 _ => query.Where(t => t.Durum == "Uyum Onayı Bekleniyor")
             };
@@ -76,13 +71,13 @@ namespace BtOperasyonTakip.Controllers
             ticket.UyumOnaylayanUserId = userId;
             ticket.UyumOnaylayanKullaniciAdi = User.Identity?.Name ?? "Bilinmiyor";
             ticket.UyumOnayTarihi = DateTime.UtcNow;
-            ticket.UyumKararAciklamasi = string.IsNullOrWhiteSpace(aciklama) ? null : aciklama;
+            ticket.UyumKararAciklamasi = string.IsNullOrWhiteSpace(aciklama) ? null : aciklama.Trim();
 
             if (string.Equals(karar, "Onay", StringComparison.OrdinalIgnoreCase))
             {
-                ticket.Durum = "Operasyon Onayı Bekleniyor";
+                ticket.Durum = "Operasyon 2 Onay Bekleniyor";
                 _context.SaveChanges();
-                TempData["Success"] = "✅ Ticket uyum tarafından onaylandı ve operasyon onayına gönderildi.";
+                TempData["Success"] = "✅ Uyum onayladı. Ticket Operasyon 2 onayına gönderildi.";
                 return RedirectToAction(nameof(Index), new { durumFilter = "Bekleyen" });
             }
 
@@ -97,7 +92,6 @@ namespace BtOperasyonTakip.Controllers
             return BadRequest("Geçersiz karar. (Onay/Red)");
         }
 
-        // Geriye dönük uyumluluk: mevcut Approve/Reject linkleri bozulmasın diye bırakılabilir.
         [HttpPost]
         [ValidateAntiForgeryToken]
         public IActionResult Approve(int id, string? aciklama) => Decide(id, "Onay", aciklama);
