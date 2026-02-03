@@ -28,7 +28,6 @@
         </div>
     }
 
-    <!-- Arama Kutusu -->
     <div class="card mb-4 shadow-sm">
         <div class="card-body">
             <form asp-action="Index" method="get" class="row g-3">
@@ -72,6 +71,7 @@
                         <th>İrtibat</th>
                         <th>Teknoloji</th>
                         <th>Durum</th>
+                        <th>Uyum Kararı Veren</th>
                         <th>Oluşturan</th>
                         <th>Tarih</th>
                         <th>İşlem</th>
@@ -90,6 +90,10 @@
                         var isOp1 = string.Equals(status, "Operasyon 1 Onay Bekleniyor", StringComparison.OrdinalIgnoreCase);
                         var isOp2 = string.Equals(status, "Operasyon 2 Onay Bekleniyor", StringComparison.OrdinalIgnoreCase);
                         var isSahaCanli = string.Equals(status, "Saha Canli Bekleniyor", StringComparison.OrdinalIgnoreCase);
+
+                        var uyumKararVeren = string.IsNullOrWhiteSpace(ticket.UyumOnaylayanKullaniciAdi)
+                        ? "-"
+                        : ticket.UyumOnaylayanKullaniciAdi;
 
                         <tr>
                             <td><strong>@ticket.Id</strong></td>
@@ -117,6 +121,23 @@
                                 }
                             </td>
                             <td><span class="badge @statusBadgeClass">@ticket.Durum</span></td>
+
+                            <td>
+                                @if (string.Equals(status, "Reddedildi", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    <span class="badge bg-danger">@uyumKararVeren</span>
+                                }
+                                else if (!string.Equals(ticket.Durum, "Uyum Onayı Bekleniyor", StringComparison.OrdinalIgnoreCase)
+                                && !string.IsNullOrWhiteSpace(ticket.UyumOnaylayanKullaniciAdi))
+                                {
+                                    <span class="badge bg-success">@uyumKararVeren</span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">-</span>
+                                }
+                            </td>
+
                             <td>@ticket.OlusturanKullaniciAdi</td>
                             <td>@ticket.OlusturmaTarihi.ToString("dd.MM.yyyy HH:mm")</td>
                             <td style="min-width: 170px;">
@@ -124,13 +145,24 @@
                                         data-ticket-id="@ticket.Id"
                                         data-bs-toggle="modal"
                                         data-bs-target="#detailModal"
+                                        data-status="@ticket.Durum"
+                                        data-olusturan="@ticket.OlusturanKullaniciAdi"
+                                        data-olusturma-tarih="@ticket.OlusturmaTarihi.ToString("dd.MM.yyyy HH:mm")"
+                                        data-op1-entegre="@((ticket.EntegreOlabilirMi.HasValue) ? (ticket.EntegreOlabilirMi.Value ? "Evet" : "Hayır") : "")"
+                                        data-op1-tarih="@(ticket.Operasyon1OnayTarihi?.ToString("dd.MM.yyyy HH:mm") ?? "")"
+                                        data-op1-not="@ticket.EntegrasyonNotu"
+                                        data-op1-karar-veren="@ticket.OnaylayanKullaniciAdi"
                                         data-uyum-onaylayan="@ticket.UyumOnaylayanKullaniciAdi"
                                         data-uyum-tarih="@(ticket.UyumOnayTarihi?.ToString("dd.MM.yyyy HH:mm") ?? "")"
-                                        data-uyum-aciklama="@ticket.UyumKararAciklamasi">
+                                        data-uyum-aciklama="@ticket.UyumKararAciklamasi"
+                                        data-op2-mail="@((ticket.MailGonderildiMi.HasValue) ? (ticket.MailGonderildiMi.Value ? "Evet" : "Hayır") : "")"
+                                        data-op2-tarih="@(ticket.Operasyon2OnayTarihi?.ToString("dd.MM.yyyy HH:mm") ?? "")"
+                                        data-op2-not="@ticket.MailNotu"
+                                        data-saha-tarih="@(ticket.CanliAcildiTarihi?.ToString("dd.MM.yyyy HH:mm") ?? "")"
+                                        data-saha-not="@ticket.CanliNotu">
                                     <i class="bi bi-eye"></i>
                                 </button>
 
-                                @* Operasyon 1 *@
                                 @if (User.IsInRole("Operasyon") && isOp1)
                                 {
                                     <button type="button" class="btn btn-sm btn-success op1-yes-btn" data-id="@ticket.Id" title="Entegre olabiliyoruz">
@@ -141,7 +173,6 @@
                                     </button>
                                 }
 
-                                @* Operasyon 2 *@
                                 @if (User.IsInRole("Operasyon") && isOp2)
                                 {
                                     <button type="button" class="btn btn-sm btn-success op2-mail-yes-btn" data-id="@ticket.Id" title="Mail gönderdim: Evet">
@@ -152,7 +183,6 @@
                                     </button>
                                 }
 
-                                @* Saha: canlı açtım *@
                                 @if (User.IsInRole("Saha") && isSahaCanli)
                                 {
                                     <button type="button" class="btn btn-sm btn-primary saha-canli-btn" data-id="@ticket.Id" title="Canlı ortamı açtım">
@@ -177,13 +207,48 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <div id="uyumDiv" class="row mb-3" style="display:none;">
+                <div class="mb-3">
+                    <div><strong>Durum:</strong> <span id="modalStatus"></span></div>
+                    <div><strong>Oluşturan:</strong> <span id="modalOlusturan"></span></div>
+                    <div><strong>Oluşturma Tarihi:</strong> <span id="modalOlusturmaTarih"></span></div>
+                </div>
+
+                <hr />
+
+                <div class="row g-3">
                     <div class="col-12">
-                        <label class="fw-bold">🛡️ Uyum Onayı:</label>
+                        <label class="fw-bold">1) Operasyon 1:</label>
                         <div class="bg-light p-2 rounded">
-                            <div><strong>Onaylayan:</strong> <span id="modalUyumOnaylayan"></span></div>
+                            <div><strong>Karar:</strong> <span id="modalOp1Karar"></span></div>
+                            <div><strong>Karar Veren:</strong> <span id="modalOp1KararVeren"></span></div>
+                            <div><strong>Tarih:</strong> <span id="modalOp1Tarih"></span></div>
+                            <div><strong>Not:</strong> <span id="modalOp1Not"></span></div>
+                        </div>
+                    </div>
+
+                    <div class="col-12">
+                        <label class="fw-bold">2) Uyum:</label>
+                        <div class="bg-light p-2 rounded">
+                            <div><strong>Karar Veren:</strong> <span id="modalUyumOnaylayan"></span></div>
                             <div><strong>Tarih:</strong> <span id="modalUyumTarih"></span></div>
                             <div><strong>Açıklama:</strong> <span id="modalUyumAciklama"></span></div>
+                        </div>
+                    </div>
+
+                    <div class="col-12">
+                        <label class="fw-bold">3) Operasyon 2:</label>
+                        <div class="bg-light p-2 rounded">
+                            <div><strong>Mail Gönderildi Mi:</strong> <span id="modalOp2Mail"></span></div>
+                            <div><strong>Tarih:</strong> <span id="modalOp2Tarih"></span></div>
+                            <div><strong>Not:</strong> <span id="modalOp2Not"></span></div>
+                        </div>
+                    </div>
+
+                    <div class="col-12">
+                        <label class="fw-bold">4) Saha:</label>
+                        <div class="bg-light p-2 rounded">
+                            <div><strong>Canlı Açıldı Tarihi:</strong> <span id="modalSahaTarih"></span></div>
+                            <div><strong>Not:</strong> <span id="modalSahaNot"></span></div>
                         </div>
                     </div>
                 </div>
@@ -198,21 +263,30 @@
 @section Scripts {
     <script>
         $(document).on("click", ".view-detail-btn", function () {
-            const ticketId = $(this).data("ticket-id");
-            $("#modalTicketId").text(ticketId || "");
+            const $btn = $(this);
 
-            const uyumOnaylayan = $(this).data("uyum-onaylayan") || "";
-            const uyumTarih = $(this).data("uyum-tarih") || "";
-            const uyumAciklama = $(this).data("uyum-aciklama") || "";
+            const ticketId = $btn.data("ticket-id") || "";
+            $("#modalTicketId").text(ticketId);
 
-            if (uyumOnaylayan || uyumTarih || uyumAciklama) {
-                $("#uyumDiv").show();
-                $("#modalUyumOnaylayan").text(uyumOnaylayan || "-");
-                $("#modalUyumTarih").text(uyumTarih || "-");
-                $("#modalUyumAciklama").text(uyumAciklama || "-");
-            } else {
-                $("#uyumDiv").hide();
-            }
+            $("#modalStatus").text($btn.data("status") || "-");
+            $("#modalOlusturan").text($btn.data("olusturan") || "-");
+            $("#modalOlusturmaTarih").text($btn.data("olusturma-tarih") || "-");
+
+            $("#modalOp1Karar").text($btn.data("op1-entegre") || "-");
+            $("#modalOp1KararVeren").text($btn.data("op1-karar-veren") || "-");
+            $("#modalOp1Tarih").text($btn.data("op1-tarih") || "-");
+            $("#modalOp1Not").text($btn.data("op1-not") || "-");
+
+            $("#modalUyumOnaylayan").text($btn.data("uyum-onaylayan") || "-");
+            $("#modalUyumTarih").text($btn.data("uyum-tarih") || "-");
+            $("#modalUyumAciklama").text($btn.data("uyum-aciklama") || "-");
+
+            $("#modalOp2Mail").text($btn.data("op2-mail") || "-");
+            $("#modalOp2Tarih").text($btn.data("op2-tarih") || "-");
+            $("#modalOp2Not").text($btn.data("op2-not") || "-");
+
+            $("#modalSahaTarih").text($btn.data("saha-tarih") || "-");
+            $("#modalSahaNot").text($btn.data("saha-not") || "-");
         });
 
         async function postJson(url, payload) {
@@ -228,7 +302,6 @@
             return data;
         }
 
-        // Operasyon 1 => Entegre olabiliyoruz
         $(document).on("click", ".op1-yes-btn", async function () {
             const id = Number($(this).data("id"));
             const not = (prompt("Operasyon 1 not (opsiyonel):", "") || "").trim();
@@ -242,7 +315,6 @@
             }
         });
 
-        // Operasyon 1 => Entegre olamıyoruz (Reddedildi)
         $(document).on("click", ".op1-no-btn", async function () {
             const id = Number($(this).data("id"));
             const not = (prompt("Entegre olamıyoruz açıklaması:", "") || "").trim();
@@ -256,7 +328,6 @@
             }
         });
 
-        // Operasyon 2 => Mail gönderdim: Evet
         $(document).on("click", ".op2-mail-yes-btn", async function () {
             const id = Number($(this).data("id"));
             const not = (prompt("Operasyon 2 not (opsiyonel):", "") || "").trim();
@@ -270,7 +341,6 @@
             }
         });
 
-        // Operasyon 2 => Mail gönderdim: Hayır (yine de Saha Canli Bekleniyor)
         $(document).on("click", ".op2-mail-no-btn", async function () {
             const id = Number($(this).data("id"));
             const not = (prompt("Mail gönderilmedi notu (opsiyonel):", "") || "").trim();
@@ -284,7 +354,6 @@
             }
         });
 
-        // Saha => Canlı açtım
         $(document).on("click", ".saha-canli-btn", async function () {
             const id = Number($(this).data("id"));
             const not = (prompt("Canlı açılış notu (opsiyonel):", "") || "").trim();
