@@ -25,6 +25,20 @@
                     </div>
                 </div>
 
+                <!-- YENİ: Müşteri Tipi -->
+                <div class="row">
+                    <div class="col-md-12 mb-3">
+                        <label asp-for="MusteriTipi" class="form-label fw-bold">
+                            👥 Müşteri Tipi <span class="text-danger">*</span>
+                        </label>
+                        <select asp-for="MusteriTipi" class="form-select" required>
+                            <option value="Kurumsal">Kurumsal</option>
+                            <option value="Bireysel">Bireysel</option>
+                        </select>
+                        <span asp-validation-for="MusteriTipi" class="text-danger"></span>
+                    </div>
+                </div>
+
                 <div class="row">
                     <div class="col-md-12 mb-3">
                         <label asp-for="MusteriWebSitesi" class="form-label fw-bold">

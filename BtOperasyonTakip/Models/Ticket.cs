@@ -25,6 +25,10 @@ namespace BtOperasyonTakip.Models
         [Required, EmailAddress, StringLength(100)]
         public string Mail { get; set; } = string.Empty;
 
+        // YENİ
+        [Required, StringLength(20)]
+        public string MusteriTipi { get; set; } = "Kurumsal"; // Kurumsal | Bireysel
+
         [StringLength(100)]
         public string? TeknolojiBilgisi { get; set; }
 
@@ -83,7 +87,6 @@ namespace BtOperasyonTakip.Models
         [StringLength(250)]
         public string? CanliNotu { get; set; }
 
-        // --- YENİ: Operasyon ataması (iş yoğunluğuna göre) ---
         public int? AtananOperasyonUserId { get; set; }
 
         [StringLength(100)]

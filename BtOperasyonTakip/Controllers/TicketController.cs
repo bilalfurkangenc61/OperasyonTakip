@@ -111,7 +111,7 @@ namespace BtOperasyonTakip.Controllers
                 // Akış başlangıcı
                 ticket.Durum = "Operasyon 1 Onay Bekleniyor";
 
-                // Operasyon ekibine dağıtım (ilk 5 operasyon kullanıcısı, iş yoğunluğuna göre)
+                // DEĞİŞİKLİK: Operasyon ekibine RASTGELE dağıtım (ilk 5 operasyon kullanıcısı içinden)
                 var operasyonAdaylari = _context.Users
                     .Where(u => u.Role == "Operasyon")
                     .OrderBy(u => u.Id)
@@ -120,28 +120,8 @@ namespace BtOperasyonTakip.Controllers
 
                 if (operasyonAdaylari.Count > 0)
                 {
-                    var adayIds = operasyonAdaylari.Select(x => x.Id).ToList();
-
-                    // Aktif iş sayısı: kapanmış saydıklarımız hariç
-                    var aktifIsSayilari = _context.Tickets
-                        .Where(t => t.AtananOperasyonUserId.HasValue
-                                    && adayIds.Contains(t.AtananOperasyonUserId.Value)
-                                    && t.Durum != "Reddedildi"
-                                    && t.Durum != "Musteri Kaydedildi")
-                        .GroupBy(t => t.AtananOperasyonUserId!.Value)
-                        .Select(g => new { UserId = g.Key, Count = g.Count() })
-                        .ToDictionary(x => x.UserId, x => x.Count);
-
-                    var secilen = operasyonAdaylari
-                        .Select(u => new
-                        {
-                            User = u,
-                            Count = aktifIsSayilari.TryGetValue(u.Id, out var c) ? c : 0
-                        })
-                        .OrderBy(x => x.Count)      // en az iş
-                        .ThenBy(x => x.User.Id)     // eşitse sıra
-                        .First()
-                        .User;
+                    var index = Random.Shared.Next(operasyonAdaylari.Count);
+                    var secilen = operasyonAdaylari[index];
 
                     ticket.AtananOperasyonUserId = secilen.Id;
                     ticket.AtananOperasyonKullaniciAdi = secilen.FullName ?? secilen.UserName;
