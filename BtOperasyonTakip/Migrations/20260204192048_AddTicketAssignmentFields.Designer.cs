@@ -4,6 +4,7 @@ using BtOperasyonTakip.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BtOperasyonTakip.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260204192048_AddTicketAssignmentFields")]
+    partial class AddTicketAssignmentFields
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -86,9 +89,6 @@ namespace BtOperasyonTakip.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<int?>("MusteriID")
-                        .HasColumnType("int");
-
                     b.Property<string>("OlusturanKullaniciAdi")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -107,8 +107,6 @@ namespace BtOperasyonTakip.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("MusteriID");
 
                     b.ToTable("Hatalar");
                 });
@@ -497,15 +495,6 @@ namespace BtOperasyonTakip.Migrations
                         .HasForeignKey("MusteriID")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.Navigation("Musteri");
-                });
-
-            modelBuilder.Entity("BtOperasyonTakip.Models.Hata", b =>
-                {
-                    b.HasOne("BtOperasyonTakip.Models.Musteri", "Musteri")
-                        .WithMany()
-                        .HasForeignKey("MusteriID");
 
                     b.Navigation("Musteri");
                 });

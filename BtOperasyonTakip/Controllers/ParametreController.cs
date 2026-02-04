@@ -1,10 +1,13 @@
 ﻿using BtOperasyonTakip.Data;
 using BtOperasyonTakip.Models;
+using BtOperasyonTakip.Security;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace BtOperasyonTakip.Controllers
 {
+    [Authorize]
     public class ParametreController : Controller
     {
         private readonly AppDbContext _context;
@@ -14,6 +17,8 @@ namespace BtOperasyonTakip.Controllers
             _context = context;
         }
 
+        [HttpGet]
+        [Authorize(Roles = $"{AppRoles.Admin},{AppRoles.Operasyon}")]
         public async Task<IActionResult> Index()
         {
             var parametreler = await _context.Parametreler
@@ -37,6 +42,7 @@ namespace BtOperasyonTakip.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = AppRoles.Admin)]
         public IActionResult Index(Parametre model)
         {
             if (ModelState.IsValid)
@@ -54,6 +60,7 @@ namespace BtOperasyonTakip.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = AppRoles.Admin)]
         public IActionResult Delete(int id)
         {
             var param = _context.Parametreler.FirstOrDefault(p => p.Id == id);
@@ -68,18 +75,16 @@ namespace BtOperasyonTakip.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = AppRoles.Admin)]
         public async Task<IActionResult> TurEkle(string tur)
         {
             tur = (tur ?? "").Trim();
             if (string.IsNullOrWhiteSpace(tur))
-            {
                 return RedirectToAction(nameof(Index));
-            }
 
             var exists = await _context.Parametreler.AnyAsync(p => p.Tur == tur);
             if (!exists)
             {
-                // Sadece tür oluşturmak için boş bir kayıt atıyoruz (ParAdi null).
                 _context.Parametreler.Add(new Parametre { Tur = tur, ParAdi = null });
                 await _context.SaveChangesAsync();
             }

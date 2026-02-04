@@ -5,12 +5,19 @@
         <span>@Model.TalepKonusu (@Model.JiraId)</span>
         <span class="badge bg-secondary">@Model.Durum</span>
     </div>
+
     <div class="card-body">
         <div class="mb-2 text-muted">
             Açan: @Model.TalepAcan
         </div>
-        <div class="mb-2 text-muted">
-            Takip Eden: @(string.IsNullOrWhiteSpace(Model.TakipEden) ? "-" : Model.TakipEden)
+
+        <div class="mb-3">
+            <label class="form-label mb-1">Takip Eden</label>
+            <div class="d-flex gap-2">
+                <input class="form-control form-control-sm takip-eden-input" value="@(Model.TakipEden ?? "")" />
+                <button type="button" class="btn btn-sm btn-primary btn-assign" data-id="@Model.Id">Kaydet</button>
+            </div>
+            <div class="small text-muted assign-msg mt-1"></div>
         </div>
 
         <div class="small text-muted">
@@ -18,6 +25,19 @@
         </div>
 
         <hr />
+
+        <h6 class="mb-2">Yorum Ekle</h6>
+        <div class="mb-3">
+            <textarea class="form-control form-control-sm yorum-text" rows="2" placeholder="Yorum yaz..."></textarea>
+
+            <div class="d-flex gap-2 mt-2">
+                <input class="form-control form-control-sm yorum-ekleyen" placeholder="Ekleyen (opsiyonel)" />
+                <button type="button" class="btn btn-sm btn-outline-primary btn-yorum-ekle" data-id="@Model.Id">Yorum Ekle</button>
+            </div>
+
+            <div class="small text-muted yorum-msg mt-1"></div>
+        </div>
+
         <h6>Yorumlar</h6>
         @if (Model.Yorumlar != null && Model.Yorumlar.Any())
         {

@@ -1,4 +1,4 @@
-﻿@model List<BtOperasyonTakip.Models.Hata>
+﻿@model List<BtOperasyonTakip.Models.ViewModels.HataListItemVm>
 
 @{
     ViewData["Title"] = "Hatalar Yönetimi";
@@ -20,7 +20,7 @@
 
     <form method="get" class="row g-2 mb-3">
         <div class="col-md-3">
-            <input type="text" name="q" value="@ViewBag.Q" class="form-control" placeholder="Hata adı veya açıklama ara..." />
+            <input type="text" name="q" value="@ViewBag.Q" class="form-control" placeholder="Hata adı, açıklama veya müşteri ara..." />
         </div>
 
         <div class="col-md-2">
@@ -56,6 +56,7 @@
         <thead class="table-light">
             <tr>
                 <th>Hata</th>
+                <th>Müşteri</th>
                 <th>Kategori</th>
                 <th>Bildiren</th>
                 <th>Durum</th>
@@ -69,6 +70,7 @@
             {
                 <tr>
                     <td>@h.HataAdi</td>
+                    <td>@(string.IsNullOrWhiteSpace(h.MusteriFirma) ? "-" : h.MusteriFirma)</td>
                     <td>@h.KategoriBilgisi</td>
                     <td>@h.OlusturanKullaniciAdi</td>
 

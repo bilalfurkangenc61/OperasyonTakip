@@ -23,7 +23,6 @@
             flex: 1;
         }
 
-
         .navbar {
             background: linear-gradient(90deg, #007bff, #004bce);
             box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
@@ -48,7 +47,6 @@
             color: #cdd9ff;
         }
 
-
         .card {
             border-radius: 1rem;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
@@ -59,7 +57,6 @@
             color: #003366;
             font-weight: 600;
         }
-
 
         footer.footer {
             background-color: #fff;
@@ -99,7 +96,7 @@
                 var brandAction = "Login";
                 if (User?.Identity?.IsAuthenticated == true)
                 {
-                    if (User.IsInRole("Operasyon"))
+                    if (User.IsInRole("Operasyon") || User.IsInRole("Admin"))
                     {
                         brandController = "Dashboard";
                         brandAction = "Index";
@@ -130,7 +127,7 @@
                     {
                         <li><a class="nav-link text-white @(ViewContext.RouteData.Values["controller"]?.ToString() == "Dashboard" ? "active" : "")" asp-controller="Auth" asp-action="Login">🔐 Giriş</a></li>
                     }
-                    else if (User.IsInRole("Operasyon"))
+                    else if (User.IsInRole("Operasyon") || User.IsInRole("Admin"))
                     {
                         <li><a class="nav-link text-white @(ViewContext.RouteData.Values["controller"]?.ToString() == "Dashboard" ? "active" : "")" asp-controller="Dashboard" asp-action="Index">🏠 Ana Sayfa</a></li>
                         <li><a class="nav-link text-white @(ViewContext.RouteData.Values["controller"]?.ToString() == "Musteri" ? "active" : "")" asp-controller="Musteri" asp-action="Index">📋 Müşteriler</a></li>
@@ -138,23 +135,21 @@
 
                         //<li><a class="nav-link text-white @(ViewContext.RouteData.Values["controller"]?.ToString() == "Detay" ? "active" : "")" asp-controller="Detay" asp-action="Index">🗒️ Görüşme Detayları</a></li>
                         //<li><a class="nav-link text-white @(ViewContext.RouteData.Values["controller"]?.ToString() == "Jira" ? "active" : "")" asp-controller="Jira" asp-action="Index">🧾 Jira Görevleri</a></li>
+
                         <li><a class="nav-link text-white @(ViewContext.RouteData.Values["controller"]?.ToString() == "Takip" ? "active" : "")" asp-controller="Takip" asp-action="Index">🧾 İş Takip</a></li>
                         <li><a class="nav-link text-white @(ViewContext.RouteData.Values["controller"]?.ToString() == "Ticket" ? "active" : "")" asp-controller="Ticket" asp-action="Index">🧾 Ticketlar</a></li>
                         <li><a class="nav-link text-white @(ViewContext.RouteData.Values["controller"]?.ToString() == "Parametre" ? "active" : "")" asp-controller="Parametre" asp-action="Index">⚙️ Parametreler</a></li>
-                        <!-- OPERASYON ROLÜ -->
+
                         <li><a class="nav-link text-white @(ViewContext.RouteData.Values["controller"]?.ToString() == "Hatalar" ? "active" : "")" asp-controller="Hatalar" asp-action="Index">🚨 Hatalar</a></li>
                     }
                     else if (User.IsInRole("Saha"))
                     {
                         <li><a class="nav-link text-white @(ViewContext.RouteData.Values["controller"]?.ToString() == "Ticket" ? "active" : "")" asp-controller="Ticket" asp-action="Index">🧾 Ticketlar</a></li>
-                        <!-- SAHA ROLÜ -->
                         <li><a class="nav-link text-white @(ViewContext.RouteData.Values["controller"]?.ToString() == "Hatalar" ? "active" : "")" asp-controller="Hatalar" asp-action="Index">🚨 Hatalar</a></li>
                     }
                     else if (User.IsInRole("Uyum"))
                     {
-                        <!-- UYUM ROLÜ -->
                         <li><a class="nav-link text-white @(ViewContext.RouteData.Values["controller"]?.ToString() == "Uyum" ? "active" : "")" asp-controller="Uyum" asp-action="Index">🛡️ Uyum</a></li>
-                       
                     }
                 </ul>
 

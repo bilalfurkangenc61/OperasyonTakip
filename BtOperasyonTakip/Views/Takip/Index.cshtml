@@ -6,13 +6,25 @@
     var aktifCount = Model?.Aktif?.Count ?? 0;
     var tamamlandiCount = Model?.Tamamlandi?.Count ?? 0;
     var totalCount = beklemedeCount + aktifCount + tamamlandiCount;
+
+    var talepAcanList = Model?.TalepAcanSecenekleri ?? new List<string>();
+    var takipEdenList = Model?.TakipEdenSecenekleri ?? new List<string>();
+
+    var q = Model?.Q ?? "";
+    var currentPage = Model?.Page ?? 1;
+    var pageSize = Model?.PageSize ?? 10;
+    var totalPages = Model?.TotalPages ?? 1;
+    var totalDbCount = Model?.TotalCount ?? 0;
 }
 
 <div class="container py-2">
     <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2 mb-3">
         <div>
             <h4 class="mb-1">İş Takip</h4>
-            <div class="text-muted small">Toplam: <strong>@totalCount</strong> iş</div>
+            <div class="text-muted small">
+                Bu sayfa: <strong>@totalCount</strong> iş —
+                Toplam (DB): <strong>@totalDbCount</strong> iş
+            </div>
         </div>
 
         <div class="d-flex flex-wrap gap-2">
@@ -41,15 +53,30 @@
                         <label class="form-label">Talep Konusu</label>
                         <input name="TalepKonusu" class="form-control" required />
                     </div>
+
                     <div class="col-md-3">
                         <label class="form-label">Talep Açan</label>
-                        <input name="TalepAcan" class="form-control" />
+                        <select name="TalepAcan" class="form-select">
+                            <option value="">Seçiniz</option>
+                            @foreach (var p in talepAcanList)
+                            {
+                                <option value="@p">@p</option>
+                            }
+                        </select>
                     </div>
+
                     <div class="col-md-3">
                         <label class="form-label">Takip Eden</label>
-                        <input name="TakipEden" class="form-control" />
+                        <select name="TakipEden" class="form-select">
+                            <option value="">Seçiniz</option>
+                            @foreach (var p in takipEdenList)
+                            {
+                                <option value="@p">@p</option>
+                            }
+                        </select>
                     </div>
                 </div>
+
                 <div class="mt-3 d-flex gap-2">
                     <button type="submit" class="btn btn-primary">Ekle</button>
                     <button type="reset" class="btn btn-outline-secondary">Sıfırla</button>
@@ -58,15 +85,20 @@
         </div>
     </div>
 
+    <!-- Server-side Search + Paging -->
     <div class="card shadow-sm mb-3">
         <div class="card-body">
-            <div class="row align-items-end g-2">
+            <form method="get" asp-controller="Takip" asp-action="Index" class="row align-items-end g-2">
                 <div class="col-md-6">
-                    <label for="taskSearch" class="form-label">Ara</label>
-                    <input id="taskSearch" type="text" class="form-control" placeholder="JiraId / Konu / Açan / Takip Eden..." autocomplete="off" />
+                    <label for="taskSearch" class="form-label">Ara (server-side)</label>
+                    <input id="taskSearch" name="q" value="@q" type="text" class="form-control"
+                           placeholder="JiraId / Konu / Açan / Takip Eden / Durum..." autocomplete="off" />
                 </div>
 
                 <div class="col-md-6 d-flex justify-content-md-end gap-2 flex-wrap">
+                    <input type="hidden" name="page" value="1" />
+                    <input type="hidden" name="pageSize" value="@pageSize" />
+
                     <div class="d-flex flex-column align-items-md-end">
                         <label for="boardStatusFilter" class="form-label mb-1">Kolon Filtre</label>
                         <select id="boardStatusFilter" class="form-select form-select-sm" style="width:auto">
@@ -77,12 +109,44 @@
                         </select>
                     </div>
 
-                    <button type="button" id="taskSearchClear" class="btn btn-outline-secondary align-self-end">Temizle</button>
+                    <button type="submit" class="btn btn-primary align-self-end">Ara</button>
+
+                    <a class="btn btn-outline-secondary align-self-end"
+                       href="@Url.Action("Index", "Takip", new { page = 1, pageSize = pageSize })">Temizle</a>
+
                     <div class="text-muted align-self-end small">
-                        Eşleşen: <span id="taskSearchCount">0</span>
+                        Sayfa: <strong>@currentPage</strong>/<strong>@totalPages</strong>
                     </div>
                 </div>
-            </div>
+            </form>
+
+            <nav class="d-flex justify-content-between align-items-center flex-wrap gap-2 mt-3" aria-label="Sayfalama">
+                <div class="text-muted small">
+                    Toplam (DB): <strong>@totalDbCount</strong> kayıt —
+                    Sayfa: <strong>@currentPage</strong> / <strong>@totalPages</strong> —
+                    Sayfa boyutu: <strong>@pageSize</strong>
+                </div>
+
+                <ul class="pagination pagination-sm mb-0">
+                    <li class="page-item @(currentPage <= 1 ? "disabled" : "")">
+                        <a class="page-link"
+                           href="@Url.Action("Index", "Takip", new { q = q, page = currentPage - 1, pageSize = pageSize })">Önceki</a>
+                    </li>
+
+                    @for (var i = Math.Max(1, currentPage - 2); i <= Math.Min(totalPages, currentPage + 2); i++)
+                    {
+                        <li class="page-item @(i == currentPage ? "active" : "")">
+                            <a class="page-link"
+                               href="@Url.Action("Index", "Takip", new { q = q, page = i, pageSize = pageSize })">@i</a>
+                        </li>
+                    }
+
+                    <li class="page-item @(currentPage >= totalPages ? "disabled" : "")">
+                        <a class="page-link"
+                           href="@Url.Action("Index", "Takip", new { q = q, page = currentPage + 1, pageSize = pageSize })">Sonraki</a>
+                    </li>
+                </ul>
+            </nav>
         </div>
     </div>
 
@@ -229,10 +293,7 @@
 
 @section Scripts {
     <script>
-        // ====== UI helpers ======
-        function normalizeStatus(s) {
-            return (s || '').trim();
-        }
+        function normalizeStatus(s) { return (s || '').trim(); }
 
         function setCardStatusClass(card, yeniDurum) {
             if (!card) return;
@@ -255,41 +316,6 @@
             });
         }
 
-        // ====== Search / Filter (ARAMA ÇALIŞIR) ======
-        function applyTaskSearchFilter() {
-            const input = document.getElementById('taskSearch');
-            const q = (input ? input.value : '').trim().toLocaleLowerCase('tr-TR');
-
-            const cards = document.querySelectorAll('.task-card');
-            let visibleCount = 0;
-
-            cards.forEach(card => {
-                const text = (card.innerText || '').toLocaleLowerCase('tr-TR');
-                const isMatch = !q || text.includes(q);
-                card.classList.toggle('d-none', !isMatch);
-                if (isMatch) visibleCount++;
-            });
-
-            const countEl = document.getElementById('taskSearchCount');
-            if (countEl) countEl.textContent = visibleCount.toString();
-
-            updateColumnCounts();
-        }
-
-        const taskSearchInput = document.getElementById('taskSearch');
-        if (taskSearchInput) taskSearchInput.addEventListener('input', applyTaskSearchFilter);
-
-        const taskSearchClear = document.getElementById('taskSearchClear');
-        if (taskSearchClear) {
-            taskSearchClear.addEventListener('click', () => {
-                const input = document.getElementById('taskSearch');
-                if (input) input.value = '';
-                applyTaskSearchFilter();
-                if (input) input.focus();
-            });
-        }
-
-        // ====== Board column filter ======
         function layoutBoardColumns(selected) {
             const cols = Array.from(document.querySelectorAll('.board-col'));
             const isSingle = selected && selected !== 'all';
@@ -314,24 +340,249 @@
             updateColumnCounts();
         }
 
-        const boardStatusFilter = document.getElementById('boardStatusFilter');
-        if (boardStatusFilter) {
-            boardStatusFilter.addEventListener('change', () => {
-                applyBoardStatusFilter();
-                applyTaskSearchFilter();
-            });
+        function getAntiForgeryToken() {
+            const el = document.querySelector('input[name="__RequestVerificationToken"]');
+            return el ? el.value : '';
         }
+
+        const boardStatusFilter = document.getElementById('boardStatusFilter');
+        if (boardStatusFilter) boardStatusFilter.addEventListener('change', applyBoardStatusFilter);
 
         document.querySelectorAll('.board-col-status').forEach(s => {
             s.addEventListener('change', (e) => {
                 const topFilter = document.getElementById('boardStatusFilter');
                 if (topFilter) topFilter.value = e.currentTarget.value;
                 applyBoardStatusFilter();
-                applyTaskSearchFilter();
             });
         });
 
-        // ====== Drag & Drop (SÜRÜKLEME ÇALIŞIR) ======
+        // ✅ DETAY (Takip/DetailCard)
+        document.addEventListener('click', async (e) => {
+            const detayBtn = e.target.closest('.btn-detay');
+            if (!detayBtn) return;
+
+            const card = detayBtn.closest('.task-card');
+            if (!card) return;
+
+            const id = parseInt(card.getAttribute('data-id'));
+            if (!id) return;
+
+            const existing = card.nextElementSibling;
+            if (existing && existing.classList.contains('task-detail')) {
+                existing.remove();
+                return;
+            }
+
+            document.querySelectorAll('.task-detail').forEach(x => x.remove());
+
+            try {
+                const resp = await fetch('@Url.Action("DetailCard", "Takip")' + '?id=' + encodeURIComponent(id));
+                if (!resp.ok) throw new Error('HTTP ' + resp.status);
+
+                const html = await resp.text();
+
+                const wrap = document.createElement('div');
+                wrap.className = 'task-detail mt-2';
+                wrap.innerHTML = html;
+
+                card.insertAdjacentElement('afterend', wrap);
+            } catch (err) {
+                alert('Detaylar yüklenemedi: ' + err);
+            }
+        });
+
+        // ✅ ASSIGN (Takip Eden Kaydet) - detail içinden
+        document.addEventListener('click', async (e) => {
+            const btn = e.target.closest('.btn-assign');
+            if (!btn) return;
+
+            const detail = btn.closest('.task-detail');
+            if (!detail) return;
+
+            const id = parseInt(btn.getAttribute('data-id'));
+            const input = detail.querySelector('.takip-eden-input');
+            const msg = detail.querySelector('.assign-msg');
+
+            const takipEden = input ? input.value : '';
+
+            if (msg) msg.textContent = 'Kaydediliyor...';
+
+            try {
+                const resp = await fetch('@Url.Action("Assign", "Takip")', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id, takipEden })
+                });
+
+                if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                const data = await resp.json();
+                if (!data.success) throw new Error(data.message || 'Kaydedilemedi');
+
+                const card = detail.previousElementSibling;
+                const txt = card ? card.querySelector('.takip-eden-text') : null;
+                if (txt) txt.textContent = (takipEden || '-');
+
+                if (msg) msg.textContent = 'Kaydedildi.';
+                setTimeout(() => { if (msg) msg.textContent = ''; }, 1500);
+            } catch (err) {
+                if (msg) msg.textContent = '';
+                alert('Takip Eden kaydedilemedi: ' + err);
+            }
+        });
+
+              document.addEventListener('click', async (e) => {
+            const btn = e.target.closest('.btn-yorum-ekle');
+            if (!btn) return;
+
+            const detail = btn.closest('.task-detail');
+            if (!detail) return;
+
+            const jiraTaskId = parseInt(btn.getAttribute('data-id'));
+            const yorumEl = detail.querySelector('.yorum-text');
+            const ekleyenEl = detail.querySelector('.yorum-ekleyen');
+            const msg = detail.querySelector('.yorum-msg');
+
+            const yorum = yorumEl ? yorumEl.value : '';
+            const ekleyen = ekleyenEl ? ekleyenEl.value : '';
+
+            if (msg) msg.textContent = 'Kaydediliyor...';
+
+            try {
+                const token = getAntiForgeryToken();
+                if (!token) throw new Error('AntiForgery token bulunamadı');
+
+                const resp = await fetch('@Url.Action("AddYorumJson", "Takip")', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'RequestVerificationToken': token
+                    },
+                    body: JSON.stringify({ jiraTaskId, yorum, ekleyen })
+                });
+
+                if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                const data = await resp.json();
+                if (!data.success) throw new Error(data.message || 'Yorum eklenemedi');
+
+                // ✅ Detay açık kalsın: inputları temizle
+                if (yorumEl) yorumEl.value = '';
+                if (ekleyenEl) ekleyenEl.value = '';
+                if (msg) msg.textContent = 'Eklendi.';
+                setTimeout(() => { if (msg) msg.textContent = ''; }, 1200);
+
+                // ✅ Listeye anlık ekle
+                let list = detail.querySelector('ul.list-unstyled');
+                const empty = detail.querySelector('.text-muted'); // "Henüz yorum yok." da olabilir, genel text-muted var
+                // Daha güvenlisi: "Henüz yorum yok." yazısını hedefle
+                const noComment = Array.from(detail.querySelectorAll('.text-muted')).find(x => x.textContent?.trim() === 'Henüz yorum yok.');
+                if (noComment) noComment.remove();
+
+                if (!list) {
+                    list = document.createElement('ul');
+                    list.className = 'list-unstyled';
+                    const yorumlarHeader = Array.from(detail.querySelectorAll('h6')).find(x => x.textContent?.trim() === 'Yorumlar');
+                    if (yorumlarHeader) yorumlarHeader.insertAdjacentElement('afterend', list);
+                    else detail.appendChild(list);
+                }
+
+                const li = document.createElement('li');
+                li.className = 'mb-2';
+
+                const ekleyenText = (ekleyen || 'Sistem').trim() || 'Sistem';
+                const now = new Date();
+                const pad2 = (n) => n.toString().padStart(2, '0');
+                const dt = `${pad2(now.getDate())}.${pad2(now.getMonth() + 1)}.${now.getFullYear()} ${pad2(now.getHours())}:${pad2(now.getMinutes())}`;
+
+                li.innerHTML = `<strong>${ekleyenText}</strong> <span class="text-muted">(${dt})</span><br/>${(yorum || '').replaceAll('<', '&lt;').replaceAll('>', '&gt;')}`;
+                list.insertAdjacentElement('afterbegin', li);
+            } catch (err) {
+                if (msg) msg.textContent = '';
+                alert('Yorum eklenemedi: ' + err);
+            }
+        });
+
+        // ✅ SİL (Takip/Delete)
+        document.addEventListener('click', async (e) => {
+            const btn = e.target.closest('.btn-sil');
+            if (!btn) return;
+
+            const card = btn.closest('.task-card');
+            if (!card) return;
+
+            const id = parseInt(card.getAttribute('data-id'));
+            if (!id) return;
+
+            if (!confirm('Bu kaydı silmek istiyor musunuz?')) return;
+
+            try {
+                const resp = await fetch('@Url.Action("Delete", "Takip")', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id })
+                });
+
+                if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                const data = await resp.json();
+                if (!data.success) throw new Error(data.message || 'Silinemedi');
+
+                const detail = card.nextElementSibling;
+                if (detail && detail.classList.contains('task-detail')) detail.remove();
+                card.remove();
+                updateColumnCounts();
+            } catch (err) {
+                alert('Silme hatası: ' + err);
+            }
+        });
+
+        // Durum değişimi (select)
+        document.querySelectorAll('.task-status').forEach(sel => {
+            sel.addEventListener('change', async (e) => {
+                const select = e.currentTarget;
+                const id = parseInt(select.getAttribute('data-id'));
+                const yeniDurum = select.value;
+
+                const card = select.closest('.task-card');
+                const msg = card ? card.querySelector('.task-status-msg') : null;
+
+                const oldZone = card ? card.closest('.dropzone') : null;
+                const oldStatus = oldZone ? oldZone.getAttribute('data-status') : null;
+
+                const targetZone = document.querySelector(`.dropzone[data-status="${yeniDurum}"]`);
+
+                if (card && targetZone && targetZone !== oldZone) {
+                    targetZone.appendChild(card);
+                    setCardStatusClass(card, yeniDurum);
+                }
+
+                if (msg) msg.textContent = 'Kaydediliyor...';
+
+                try {
+                    const resp = await fetch('@Url.Action("UpdateDurum", "Takip")', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id, yeniDurum })
+                    });
+
+                    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+
+                    const data = await resp.json();
+                    if (!data.success) throw new Error(data.message || 'Güncellenemedi');
+
+                    if (msg) msg.textContent = '';
+                    updateColumnCounts();
+                } catch (err) {
+                    if (card && oldZone) oldZone.appendChild(card);
+                    if (oldStatus) {
+                        select.value = oldStatus;
+                        setCardStatusClass(card, oldStatus);
+                    }
+                    if (msg) msg.textContent = '';
+                    alert('Durum güncellemede hata: ' + err);
+                }
+            });
+        });
+
+        // Drag & drop
         let draggedCard = null;
 
         document.querySelectorAll('.draggable').forEach(card => {
@@ -369,7 +620,6 @@
                 const oldParent = draggedCard.parentElement;
                 zone.appendChild(draggedCard);
 
-                // UI sync
                 setCardStatusClass(draggedCard, yeniDurum);
                 const sel = draggedCard.querySelector('.task-status');
                 if (sel) sel.value = yeniDurum;
@@ -386,7 +636,6 @@
                     const data = await resp.json();
                     if (!data.success) {
                         oldParent.appendChild(draggedCard);
-                        // rollback class & select to old parent's status
                         const oldStatus = oldParent ? oldParent.getAttribute('data-status') : null;
                         if (oldStatus) {
                             setCardStatusClass(draggedCard, oldStatus);
@@ -394,7 +643,7 @@
                         }
                         alert('Durum güncellenemedi: ' + (data.message || 'Hata'));
                     } else {
-                        applyTaskSearchFilter();
+                        updateColumnCounts();
                     }
                 } catch (err) {
                     oldParent.appendChild(draggedCard);
@@ -408,59 +657,8 @@
             });
         });
 
-        // ====== Status dropdown change on card ======
-        document.querySelectorAll('.task-status').forEach(sel => {
-            sel.addEventListener('change', async (e) => {
-                const select = e.currentTarget;
-                const id = parseInt(select.getAttribute('data-id'));
-                const yeniDurum = select.value;
-
-                const card = select.closest('.task-card');
-                const msg = card ? card.querySelector('.task-status-msg') : null;
-
-                const oldZone = card ? card.closest('.dropzone') : null;
-                const oldStatus = oldZone ? oldZone.getAttribute('data-status') : null;
-
-                const targetZone = document.querySelector(`.dropzone[data-status="${yeniDurum}"]`);
-
-                // UI: move first (rollback on error)
-                if (card && targetZone && targetZone !== oldZone) {
-                    targetZone.appendChild(card);
-                    setCardStatusClass(card, yeniDurum);
-                }
-
-                if (msg) msg.textContent = 'Kaydediliyor...';
-
-                try {
-                    const resp = await fetch('@Url.Action("UpdateDurum", "Takip")', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ id, yeniDurum })
-                    });
-
-                    if (!resp.ok) throw new Error('HTTP ' + resp.status);
-
-                    const data = await resp.json();
-                    if (!data.success) throw new Error(data.message || 'Güncellenemedi');
-
-                    if (msg) msg.textContent = '';
-                    applyTaskSearchFilter();
-                } catch (err) {
-                    // rollback
-                    if (card && oldZone) oldZone.appendChild(card);
-                    if (oldStatus) {
-                        select.value = oldStatus;
-                        setCardStatusClass(card, oldStatus);
-                    }
-                    if (msg) msg.textContent = '';
-                    alert('Durum güncellemede hata: ' + err);
-                }
-            });
-        });
-
-        // Initial
         applyBoardStatusFilter();
-        applyTaskSearchFilter();
+        updateColumnCounts();
     </script>
 
     <style>
@@ -490,7 +688,6 @@
                 padding: .75rem;
             }
 
-            /* Duruma göre sol şerit */
             .task-card.status-beklemede {
                 border-left: 6px solid #6c757d;
             }

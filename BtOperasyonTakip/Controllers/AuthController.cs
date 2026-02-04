@@ -1,5 +1,6 @@
 ﻿using BtOperasyonTakip.Data;
 using BtOperasyonTakip.Models;
+using BtOperasyonTakip.Security;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
@@ -19,11 +20,27 @@ namespace BtOperasyonTakip.Controllers
             _context = context;
         }
 
+
+
         private static string HashPassword(string password)
         {
             using var sha256 = SHA256.Create();
             var bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
             return Convert.ToBase64String(bytes);
+        }
+
+        private static string ResolveRole(User user)
+        {
+            var adminUsers = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        "admin",
+        "furkan"
+    };
+
+            if (adminUsers.Contains(user.UserName))
+                return AppRoles.Admin;
+
+            return string.IsNullOrWhiteSpace(user.Role) ? AppRoles.Saha : user.Role;
         }
 
         [HttpGet]
@@ -32,17 +49,55 @@ namespace BtOperasyonTakip.Controllers
         {
             if (User.Identity?.IsAuthenticated == true)
             {
-                if (User.IsInRole("Operasyon"))
+                if (User.IsInRole(AppRoles.Operasyon))
                     return RedirectToAction("Index", "Dashboard");
-                if (User.IsInRole("Saha"))
+                if (User.IsInRole(AppRoles.Saha))
                     return RedirectToAction("Index", "Ticket");
-                if (User.IsInRole("Uyum"))
+                if (User.IsInRole(AppRoles.Uyum))
                     return RedirectToAction("Index", "Uyum");
 
                 return RedirectToAction("Index", "Dashboard");
             }
 
             return View();
+        }
+
+
+        [HttpGet]
+        [AllowAnonymous]
+        public IActionResult SeedAdmin()
+        {
+            const string username = "furkan";
+            const string password = "123456";
+            const string email = "furkan@local";
+
+            var hash = HashPassword(password);
+
+            var user = _context.Users.FirstOrDefault(x => x.UserName == username);
+            if (user == null)
+            {
+                user = new User
+                {
+                    UserName = username,
+                    FullName = "Furkan",
+                    Email = email,
+                    PasswordHash = hash,
+                    CreatedAt = DateTime.Now,
+                    Role = AppRoles.Saha
+                };
+
+                _context.Users.Add(user);
+            }
+            else
+            {
+                user.PasswordHash = hash;
+                if (string.IsNullOrWhiteSpace(user.Email))
+                    user.Email = email;
+            }
+
+            _context.SaveChanges();
+
+            return Content($"OK. Kullanıcı: {username} / Şifre: {password}");
         }
 
         [HttpPost]
@@ -58,12 +113,14 @@ namespace BtOperasyonTakip.Controllers
                 return View();
             }
 
+            var role = ResolveRole(user);
+
             var claims = new List<Claim>
             {
                 new Claim(ClaimTypes.Name, user.FullName ?? user.UserName),
                 new Claim(ClaimTypes.Email, user.Email ?? ""),
                 new Claim("UserId", user.Id.ToString()),
-                new Claim(ClaimTypes.Role, user.Role ?? "Saha")
+                new Claim(ClaimTypes.Role, role)
             };
 
             var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
@@ -76,9 +133,9 @@ namespace BtOperasyonTakip.Controllers
                     ExpiresUtc = DateTimeOffset.UtcNow.AddDays(7)
                 });
 
-            if (user.Role == "Operasyon")
+            if (role == AppRoles.Operasyon || role == AppRoles.Admin)
                 return RedirectToAction("Index", "Dashboard");
-            if (user.Role == "Uyum")
+            if (role == AppRoles.Uyum)
                 return RedirectToAction("Index", "Uyum");
 
             return RedirectToAction("Index", "Ticket");
@@ -110,7 +167,7 @@ namespace BtOperasyonTakip.Controllers
                 Email = email,
                 PasswordHash = HashPassword(password),
                 CreatedAt = DateTime.Now,
-                Role = string.IsNullOrWhiteSpace(role) ? "Saha" : role
+                Role = string.IsNullOrWhiteSpace(role) ? AppRoles.Saha : role
             };
 
             _context.Users.Add(user);
@@ -118,9 +175,11 @@ namespace BtOperasyonTakip.Controllers
 
             await SignInUser(user);
 
-            if (user.Role == "Operasyon")
+            var resolvedRole = ResolveRole(user);
+
+            if (resolvedRole == AppRoles.Operasyon || resolvedRole == AppRoles.Admin)
                 return RedirectToAction("Index", "Home");
-            if (user.Role == "Uyum")
+            if (resolvedRole == AppRoles.Uyum)
                 return RedirectToAction("Index", "Uyum");
 
             return RedirectToAction("Index", "Ticket");
@@ -135,12 +194,14 @@ namespace BtOperasyonTakip.Controllers
 
         private async Task SignInUser(User user)
         {
+            var role = ResolveRole(user);
+
             var claims = new List<Claim>
             {
                 new Claim(ClaimTypes.Name, user.FullName ?? user.UserName),
                 new Claim(ClaimTypes.Email, user.Email ?? ""),
                 new Claim("UserId", user.Id.ToString()),
-                new Claim(ClaimTypes.Role, user.Role ?? "Saha")
+                new Claim(ClaimTypes.Role, role)
             };
 
             var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);

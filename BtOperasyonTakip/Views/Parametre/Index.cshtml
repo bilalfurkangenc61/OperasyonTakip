@@ -2,42 +2,46 @@
 @{
     ViewData["Title"] = "Parametreler";
     var turler = (IEnumerable<string>)(ViewBag.Turler ?? new List<string>());
+    var isAdmin = User.IsInRole("Admin");
 }
 
 <div class="container mt-4">
     <h2 class="text-primary mb-3">Parametre Yönetimi</h2>
 
-    <form asp-action="Index" method="post" class="row g-3 border p-3 rounded bg-light mb-4 shadow-sm">
-        @Html.AntiForgeryToken()
-        <div class="col-md-5">
-            <label class="form-label">Parametre Adı</label>
-            <input name="ParAdi" class="form-control" placeholder="Örnek: .NET veya Bilal Furkan Genç" required />
-        </div>
-        <div class="col-md-4">
-            <label class="form-label">Tür</label>
-            <select name="Tur" id="turSelect" class="form-select" required>
-                <option value="">Seçiniz</option>
-                @foreach (var t in turler)
-                {
-                    <option value="@t">@t</option>
-                }
-            </select>
-        </div>
-        <div class="col-md-3 d-flex align-items-end">
-            <button type="submit" class="btn btn-success w-100">Ekle</button>
-        </div>
-    </form>
+    @if (isAdmin)
+    {
+        <form asp-action="Index" method="post" class="row g-3 border p-3 rounded bg-light mb-4 shadow-sm">
+            @Html.AntiForgeryToken()
+            <div class="col-md-5">
+                <label class="form-label">Parametre Adı</label>
+                <input name="ParAdi" class="form-control" placeholder="Örnek: .NET veya Bilal Furkan Genç" required />
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Tür</label>
+                <select name="Tur" id="turSelect" class="form-select" required>
+                    <option value="">Seçiniz</option>
+                    @foreach (var t in turler)
+                    {
+                        <option value="@t">@t</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-3 d-flex align-items-end">
+                <button type="submit" class="btn btn-success w-100">Ekle</button>
+            </div>
+        </form>
 
-    <form asp-action="TurEkle" method="post" class="row g-3 border p-3 rounded bg-white mb-4 shadow-sm">
-        @Html.AntiForgeryToken()
-        <div class="col-md-9">
-            <label class="form-label">Yeni Tür Ekle</label>
-            <input name="tur" class="form-control" placeholder="Örnek: Öncelik" />
-        </div>
-        <div class="col-md-3 d-flex align-items-end">
-            <button type="submit" class="btn btn-primary w-100">Tür Ekle</button>
-        </div>
-    </form>
+        <form asp-action="TurEkle" method="post" class="row g-3 border p-3 rounded bg-white mb-4 shadow-sm">
+            @Html.AntiForgeryToken()
+            <div class="col-md-9">
+                <label class="form-label">Yeni Tür Ekle</label>
+                <input name="tur" class="form-control" placeholder="Örnek: Öncelik" />
+            </div>
+            <div class="col-md-3 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">Tür Ekle</button>
+            </div>
+        </form>
+    }
 
     <table class="table table-bordered table-hover align-middle shadow-sm">
         <thead class="table-secondary">
@@ -56,11 +60,14 @@
                     <td>@p.ParAdi</td>
                     <td>@p.Tur</td>
                     <td>
-                        <form asp-action="Delete" method="post" class="d-inline">
-                            @Html.AntiForgeryToken()
-                            <input type="hidden" name="id" value="@p.Id" />
-                            <button type="submit" class="btn btn-sm btn-danger">Sil</button>
-                        </form>
+                        @if (isAdmin)
+                        {
+                            <form asp-action="Delete" method="post" class="d-inline">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="id" value="@p.Id" />
+                                <button type="submit" class="btn btn-sm btn-danger">Sil</button>
+                            </form>
+                        }
                     </td>
                 </tr>
             }

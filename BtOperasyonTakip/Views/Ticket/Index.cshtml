@@ -67,6 +67,7 @@
                         <th>Firma</th>
                         <th>Müşteri Web Sitesi</th>
                         <th>Yazılımcı</th>
+                        <th>Atanan Operasyon</th>
                         <th>📧 Mail</th>
                         <th>İrtibat</th>
                         <th>Teknoloji</th>
@@ -98,18 +99,34 @@
                         <tr>
                             <td><strong>@ticket.Id</strong></td>
                             <td>@ticket.FirmaAdi</td>
+
                             <td>
                                 <a href="@ticket.MusteriWebSitesi" target="_blank" class="text-decoration-none">
                                     @(ticket.MusteriWebSitesi.Length > 30 ? ticket.MusteriWebSitesi.Substring(0, 30) + "..." : ticket.MusteriWebSitesi)
                                 </a>
                             </td>
+
                             <td>@ticket.YazilimciAdi @ticket.YazilimciSoyadi</td>
+
+                            <td>
+                                @if (!string.IsNullOrWhiteSpace(ticket.AtananOperasyonKullaniciAdi))
+                                {
+                                    <span class="badge bg-primary">@ticket.AtananOperasyonKullaniciAdi</span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">-</span>
+                                }
+                            </td>
+
                             <td>
                                 <a href="mailto:@ticket.Mail" class="text-decoration-none">
                                     <i class="bi bi-envelope"></i> @(ticket.Mail.Length > 25 ? ticket.Mail.Substring(0, 25) + "..." : ticket.Mail)
                                 </a>
                             </td>
+
                             <td>@ticket.IrtibatNumarasi</td>
+
                             <td>
                                 @if (!string.IsNullOrWhiteSpace(ticket.TeknolojiBilgisi))
                                 {
@@ -120,6 +137,7 @@
                                     <span class="badge bg-light text-dark">Seçilmedi</span>
                                 }
                             </td>
+
                             <td><span class="badge @statusBadgeClass">@ticket.Durum</span></td>
 
                             <td>
@@ -140,6 +158,7 @@
 
                             <td>@ticket.OlusturanKullaniciAdi</td>
                             <td>@ticket.OlusturmaTarihi.ToString("dd.MM.yyyy HH:mm")</td>
+
                             <td style="min-width: 170px;">
                                 <button type="button" class="btn btn-sm btn-info view-detail-btn"
                                         data-ticket-id="@ticket.Id"
@@ -187,6 +206,10 @@
                                 {
                                     <button type="button" class="btn btn-sm btn-primary saha-canli-btn" data-id="@ticket.Id" title="Canlı ortamı açtım">
                                         <i class="bi bi-broadcast"></i>
+                                    </button>
+
+                                    <button type="button" class="btn btn-sm btn-danger saha-red-btn" data-id="@ticket.Id" title="Canlı aşamasında reddet">
+                                        <i class="bi bi-x-octagon"></i>
                                     </button>
                                 }
                             </td>
@@ -360,6 +383,20 @@
 
             try {
                 const data = await postJson("@Url.Action("SahaCanliAcildi", "Ticket")", { id, not });
+                alert(data?.message || "İşlem tamamlandı.");
+                if (data?.success) location.reload();
+            } catch (e) {
+                alert("Hata: " + (e?.message || e));
+            }
+        });
+
+        $(document).on("click", ".saha-red-btn", async function () {
+            const id = Number($(this).data("id"));
+            const not = (prompt("Reddetme açıklaması (zorunlu):", "") || "").trim();
+            if (!not) { alert("Açıklama zorunlu."); return; }
+
+            try {
+                const data = await postJson("@Url.Action("SahaReddet", "Ticket")", { id, not });
                 alert(data?.message || "İşlem tamamlandı.");
                 if (data?.success) location.reload();
             } catch (e) {

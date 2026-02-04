@@ -1,7 +1,9 @@
 ﻿using BtOperasyonTakip.Data;
 using BtOperasyonTakip.Models;
+using BtOperasyonTakip.Models.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using System.Globalization;
 using System.Text;
@@ -21,30 +23,47 @@ namespace BtOperasyonTakip.Controllers
         // period format: "yyyy-MM" (örn: 2026-01)
         public async Task<IActionResult> Index(string q, string durum, string kategori, string? period)
         {
-            IQueryable<Hata> query = _context.Hatalar.AsQueryable();
+            var query =
+                from h in _context.Hatalar.AsNoTracking()
+                join m in _context.Musteriler.AsNoTracking() on h.MusteriID equals m.MusteriID into mj
+                from m in mj.DefaultIfEmpty()
+                select new { h, m };
 
             if (!string.IsNullOrWhiteSpace(q))
             {
-                query = query.Where(h =>
-                    h.HataAdi.Contains(q) ||
-                    h.HataAciklama.Contains(q) ||
-                    h.OlusturanKullaniciAdi.Contains(q));
+                var term = q.Trim();
+                query = query.Where(x =>
+                    x.h.HataAdi.Contains(term) ||
+                    x.h.HataAciklama.Contains(term) ||
+                    x.h.OlusturanKullaniciAdi.Contains(term) ||
+                    (x.m != null && x.m.Firma != null && x.m.Firma.Contains(term)));
             }
 
             if (!string.IsNullOrWhiteSpace(durum))
-                query = query.Where(h => h.Durum == durum);
+                query = query.Where(x => x.h.Durum == durum);
 
             if (!string.IsNullOrWhiteSpace(kategori))
-                query = query.Where(h => h.KategoriBilgisi == kategori);
+                query = query.Where(x => x.h.KategoriBilgisi == kategori);
 
             if (TryParsePeriod(period, out var start, out var end))
-                query = query.Where(h => h.OlusturmaTarihi >= start && h.OlusturmaTarihi < end);
+                query = query.Where(x => x.h.OlusturmaTarihi >= start && x.h.OlusturmaTarihi < end);
 
             var hatalar = await query
-                .OrderByDescending(h => h.OlusturmaTarihi)
+                .OrderByDescending(x => x.h.OlusturmaTarihi)
+                .Select(x => new HataListItemVm
+                {
+                    Id = x.h.Id,
+                    HataAdi = x.h.HataAdi,
+                    KategoriBilgisi = x.h.KategoriBilgisi,
+                    OlusturanKullaniciAdi = x.h.OlusturanKullaniciAdi,
+                    Durum = x.h.Durum,
+                    OlusturmaTarihi = x.h.OlusturmaTarihi,
+                    MusteriFirma = x.m != null ? x.m.Firma : null
+                })
                 .ToListAsync();
 
             var mevcutHatalar = await _context.Hatalar
+                .AsNoTracking()
                 .Where(h => h.Durum == "Açık")
                 .OrderBy(h => h.HataAdi)
                 .ToListAsync();
@@ -62,27 +81,43 @@ namespace BtOperasyonTakip.Controllers
         [HttpGet]
         public async Task<IActionResult> ExportExcel(string q, string durum, string kategori, string? period)
         {
-            IQueryable<Hata> query = _context.Hatalar.AsNoTracking();
+            var query =
+                from h in _context.Hatalar.AsNoTracking()
+                join m in _context.Musteriler.AsNoTracking() on h.MusteriID equals m.MusteriID into mj
+                from m in mj.DefaultIfEmpty()
+                select new { h, m };
 
             if (!string.IsNullOrWhiteSpace(q))
             {
-                query = query.Where(h =>
-                    h.HataAdi.Contains(q) ||
-                    h.HataAciklama.Contains(q) ||
-                    h.OlusturanKullaniciAdi.Contains(q));
+                var term = q.Trim();
+                query = query.Where(x =>
+                    x.h.HataAdi.Contains(term) ||
+                    x.h.HataAciklama.Contains(term) ||
+                    x.h.OlusturanKullaniciAdi.Contains(term) ||
+                    (x.m != null && x.m.Firma != null && x.m.Firma.Contains(term)));
             }
 
             if (!string.IsNullOrWhiteSpace(durum))
-                query = query.Where(h => h.Durum == durum);
+                query = query.Where(x => x.h.Durum == durum);
 
             if (!string.IsNullOrWhiteSpace(kategori))
-                query = query.Where(h => h.KategoriBilgisi == kategori);
+                query = query.Where(x => x.h.KategoriBilgisi == kategori);
 
             if (TryParsePeriod(period, out var start, out var end))
-                query = query.Where(h => h.OlusturmaTarihi >= start && h.OlusturmaTarihi < end);
+                query = query.Where(x => x.h.OlusturmaTarihi >= start && x.h.OlusturmaTarihi < end);
 
             var data = await query
-                .OrderByDescending(h => h.OlusturmaTarihi)
+                .OrderByDescending(x => x.h.OlusturmaTarihi)
+                .Select(x => new
+                {
+                    x.h.HataAdi,
+                    x.h.HataAciklama,
+                    x.h.KategoriBilgisi,
+                    x.h.OlusturanKullaniciAdi,
+                    MusteriFirma = x.m != null ? x.m.Firma : null,
+                    x.h.Durum,
+                    x.h.OlusturmaTarihi
+                })
                 .ToListAsync();
 
             var sb = new StringBuilder();
@@ -90,27 +125,28 @@ namespace BtOperasyonTakip.Controllers
             // BOM: Excel'in UTF-8 Türkçe karakterleri doğru açması için
             sb.Append('\uFEFF');
 
-            // Başlık
             sb.AppendLine(string.Join(';', new[]
             {
                 "Hata",
                 "Açıklama",
+                "Müşteri",
                 "Kategori",
                 "Bildiren",
                 "Durum",
                 "Tarih"
             }));
 
-            foreach (var h in data)
+            foreach (var x in data)
             {
                 sb.AppendLine(string.Join(';', new[]
                 {
-                    CsvEscape(h.HataAdi),
-                    CsvEscape(h.HataAciklama),
-                    CsvEscape(h.KategoriBilgisi),
-                    CsvEscape(h.OlusturanKullaniciAdi),
-                    CsvEscape(h.Durum),
-                    CsvEscape(h.OlusturmaTarihi.ToString("dd.MM.yyyy HH:mm", CultureInfo.GetCultureInfo("tr-TR")))
+                    CsvEscape(x.HataAdi),
+                    CsvEscape(x.HataAciklama),
+                    CsvEscape(x.MusteriFirma ?? "-"),
+                    CsvEscape(x.KategoriBilgisi),
+                    CsvEscape(x.OlusturanKullaniciAdi),
+                    CsvEscape(x.Durum),
+                    CsvEscape(x.OlusturmaTarihi.ToString("dd.MM.yyyy HH:mm", CultureInfo.GetCultureInfo("tr-TR")))
                 }));
             }
 
@@ -121,44 +157,24 @@ namespace BtOperasyonTakip.Controllers
             return File(bytes, "text/csv; charset=utf-8", fileName);
         }
 
-        private static string CsvEscape(string? value)
-        {
-            value ??= "";
-            // CSV ayırıcı ";" olduğundan; ;, " veya satır sonu varsa tırnakla
-            var mustQuote = value.Contains(';') || value.Contains('"') || value.Contains('\n') || value.Contains('\r');
-            value = value.Replace("\"", "\"\"");
-            return mustQuote ? $"\"{value}\"" : value;
-        }
-
-        private static bool TryParsePeriod(string? period, out DateTime start, out DateTime end)
-        {
-            start = default;
-            end = default;
-
-            if (string.IsNullOrWhiteSpace(period))
-                return false;
-
-            if (!DateTime.TryParseExact(
-                    period.Trim(),
-                    "yyyy-MM",
-                    CultureInfo.InvariantCulture,
-                    DateTimeStyles.None,
-                    out var dt))
-                return false;
-
-            start = new DateTime(dt.Year, dt.Month, 1);
-            end = start.AddMonths(1);
-            return true;
-        }
-
         [HttpGet]
-        public IActionResult Yeni()
+        public async Task<IActionResult> Yeni()
         {
-            return View();
+            ViewBag.Musteriler = await _context.Musteriler
+                .AsNoTracking()
+                .OrderBy(x => x.Firma)
+                .Select(x => new SelectListItem
+                {
+                    Value = x.MusteriID.ToString(),
+                    Text = x.Firma ?? $"Müşteri #{x.MusteriID}"
+                })
+                .ToListAsync();
+
+            return View(new Hata());
         }
 
         [HttpPost]
-        public IActionResult Yeni(Hata h)
+        public async Task<IActionResult> Yeni(Hata h)
         {
             ModelState.Remove("OperasyonCevabi");
             ModelState.Remove("CevaplayanKullaniciAdi");
@@ -168,8 +184,23 @@ namespace BtOperasyonTakip.Controllers
             ModelState.Remove("OlusturmaTarihi");
             ModelState.Remove("SecilenHataId");
 
+            if (h.MusteriID is null || !await _context.Musteriler.AnyAsync(x => x.MusteriID == h.MusteriID.Value))
+                ModelState.AddModelError(nameof(Hata.MusteriID), "Lütfen bir müşteri seçiniz.");
+
             if (!ModelState.IsValid)
+            {
+                ViewBag.Musteriler = await _context.Musteriler
+                    .AsNoTracking()
+                    .OrderBy(x => x.Firma)
+                    .Select(x => new SelectListItem
+                    {
+                        Value = x.MusteriID.ToString(),
+                        Text = x.Firma ?? $"Müşteri #{x.MusteriID}"
+                    })
+                    .ToListAsync();
+
                 return View(h);
+            }
 
             h.OlusturanUserId = int.Parse(User.FindFirst("UserId")!.Value);
             h.OlusturanKullaniciAdi = User.Identity!.Name!;
@@ -178,16 +209,19 @@ namespace BtOperasyonTakip.Controllers
             h.CevaplayanKullaniciAdi = "";
 
             _context.Hatalar.Add(h);
-            _context.SaveChanges();
+            await _context.SaveChangesAsync();
 
             return RedirectToAction("Index");
         }
 
         [HttpPost]
-        public async Task<IActionResult> Create(string hataAdi, string hataAciklama, string kategori, int? mevcutHataId)
+        public async Task<IActionResult> Create(string hataAdi, string hataAciklama, string kategori, int? mevcutHataId, int? musteriId)
         {
             var userId = int.Parse(User.FindFirst("UserId")!.Value);
             var userName = User.Identity!.Name;
+
+            if (musteriId is null || !await _context.Musteriler.AnyAsync(x => x.MusteriID == musteriId.Value))
+                return BadRequest("Lütfen geçerli bir müşteri seçiniz.");
 
             var hata = new Hata
             {
@@ -196,6 +230,7 @@ namespace BtOperasyonTakip.Controllers
                 KategoriBilgisi = kategori,
                 Durum = "Açık",
                 SecilenHataId = mevcutHataId,
+                MusteriID = musteriId,
                 OlusturanUserId = userId,
                 OlusturanKullaniciAdi = userName,
                 OlusturmaTarihi = DateTime.Now,
@@ -236,6 +271,35 @@ namespace BtOperasyonTakip.Controllers
             TempData["HataYanitiVar"] = "ok";
 
             return RedirectToAction("Detay", new { id });
+        }
+
+        private static string CsvEscape(string? value)
+        {
+            value ??= "";
+            var mustQuote = value.Contains(';') || value.Contains('\"') || value.Contains('\n') || value.Contains('\r');
+            value = value.Replace("\"", "\"\"");
+            return mustQuote ? $"\"{value}\"" : value;
+        }
+
+        private static bool TryParsePeriod(string? period, out DateTime start, out DateTime end)
+        {
+            start = default;
+            end = default;
+
+            if (string.IsNullOrWhiteSpace(period))
+                return false;
+
+            if (!DateTime.TryParseExact(
+                    period.Trim(),
+                    "yyyy-MM",
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.None,
+                    out var dt))
+                return false;
+
+            start = new DateTime(dt.Year, dt.Month, 1);
+            end = start.AddMonths(1);
+            return true;
         }
     }
 }

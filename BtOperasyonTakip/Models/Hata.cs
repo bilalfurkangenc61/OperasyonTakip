@@ -1,4 +1,4 @@
-﻿using System;
+﻿using System.ComponentModel.DataAnnotations.Schema;
 
 namespace BtOperasyonTakip.Models
 {
@@ -17,5 +17,10 @@ namespace BtOperasyonTakip.Models
         public int? CevaplayanUserId { get; set; }
         public string CevaplayanKullaniciAdi { get; set; }
         public DateTime? CevaplaamaTarihi { get; set; }
+
+        public int? MusteriID { get; set; }
+
+        [ForeignKey(nameof(MusteriID))]
+        public Musteri? Musteri { get; set; }
     }
 }

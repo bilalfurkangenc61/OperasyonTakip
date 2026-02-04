@@ -5,28 +5,72 @@ using Microsoft.EntityFrameworkCore;
 
 namespace BtOperasyonTakip.Controllers
 {
-    // JiraController ile aynı yapı; View tarafında ekstra "Takip Eden" bilgisini gösterin
     public class TakipController : Controller
     {
         private readonly AppDbContext _context;
+
+        private const string TalepEdenTur = "TalepEden";
+        private const int DefaultPageSize = 10;
+        private const int MaxPageSize = 100;
+
         public TakipController(AppDbContext context) => _context = context;
 
         [HttpGet]
-        public IActionResult Index()
+        public IActionResult Index(string? q, int page = 1, int pageSize = DefaultPageSize)
         {
-            var tasks = _context.JiraTasks
-                                .Include(x => x.Yorumlar)
-                                .OrderByDescending(x => x.OlusturmaTarihi)
-                                .ToList();
+            page = page < 1 ? 1 : page;
+            pageSize = pageSize < 1 ? DefaultPageSize : pageSize;
+            pageSize = pageSize > MaxPageSize ? MaxPageSize : pageSize;
+
+            var talepEdenParamList = _context.Parametreler
+                .AsNoTracking()
+                .Where(p => (p.Tur ?? "").Trim() == TalepEdenTur && p.ParAdi != null && p.ParAdi != "")
+                .OrderBy(p => p.ParAdi)
+                .Select(p => p.ParAdi!)
+                .ToList();
+
+            var query = _context.JiraTasks
+                .AsNoTracking()
+                .Include(x => x.Yorumlar)
+                .AsQueryable();
+
+            q = (q ?? "").Trim();
+            if (!string.IsNullOrWhiteSpace(q))
+            {
+                var qq = q.ToLower();
+
+                query = query.Where(t =>
+                    (t.JiraId ?? "").ToLower().Contains(qq) ||
+                    (t.TalepKonusu ?? "").ToLower().Contains(qq) ||
+                    (t.TalepAcan ?? "").ToLower().Contains(qq) ||
+                    (t.TakipEden ?? "").ToLower().Contains(qq) ||
+                    (t.Durum ?? "").ToLower().Contains(qq));
+            }
+
+            query = query.OrderByDescending(x => x.OlusturmaTarihi);
+
+            var totalCount = query.Count();
+
+            var paged = query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToList();
 
             var model = new JiraBoardViewModel
             {
-                Beklemede = tasks.Where(t => (t.Durum ?? "").Trim().Equals("Beklemede", StringComparison.OrdinalIgnoreCase)).ToList(),
-                Aktif = tasks.Where(t => (t.Durum ?? "").Trim().Equals("Aktif", StringComparison.OrdinalIgnoreCase)).ToList(),
-                Tamamlandi = tasks.Where(t => (t.Durum ?? "").Trim().Equals("Tamamlandı", StringComparison.OrdinalIgnoreCase)).ToList()
+                Q = q,
+                Page = page,
+                PageSize = pageSize,
+                TotalCount = totalCount,
+
+                Beklemede = paged.Where(t => (t.Durum ?? "").Trim().Equals("Beklemede", StringComparison.OrdinalIgnoreCase)).ToList(),
+                Aktif = paged.Where(t => (t.Durum ?? "").Trim().Equals("Aktif", StringComparison.OrdinalIgnoreCase)).ToList(),
+                Tamamlandi = paged.Where(t => (t.Durum ?? "").Trim().Equals("Tamamlandı", StringComparison.OrdinalIgnoreCase)).ToList(),
+
+                TalepAcanSecenekleri = talepEdenParamList,
+                TakipEdenSecenekleri = talepEdenParamList
             };
 
-            // Not: View tarafında kart/listede "Takip Eden" alanını gösterin (ör. task.TakipEden)
             return View(model);
         }
 
@@ -40,8 +84,6 @@ namespace BtOperasyonTakip.Controllers
             model.TalepKonusu = (model.TalepKonusu ?? "").Trim();
             model.TalepAcan = (model.TalepAcan ?? "").Trim();
             model.Durum = string.IsNullOrWhiteSpace(model.Durum) ? "Beklemede" : model.Durum.Trim();
-
-            // "Takip Eden" bilgisi opsiyonel; varsa trimleyelim
             model.TakipEden = (model.TakipEden ?? "").Trim();
 
             if (string.IsNullOrWhiteSpace(model.JiraId) || string.IsNullOrWhiteSpace(model.TalepKonusu))
@@ -54,10 +96,12 @@ namespace BtOperasyonTakip.Controllers
 
             _context.JiraTasks.Add(model);
             _context.SaveChanges();
+
             TempData["JiraOk"] = "Görev eklendi.";
             return RedirectToAction(nameof(Index));
         }
 
+        // Eski form post hâlâ dursun
         [HttpPost]
         [ValidateAntiForgeryToken]
         public IActionResult AddYorum(int jiraTaskId, string yorum, string ekleyen)
@@ -91,7 +135,43 @@ namespace BtOperasyonTakip.Controllers
             return RedirectToAction(nameof(Index));
         }
 
-        // SADECE BİR TANE UpdateDurum METHODU OLSUN
+        // ✅ NEW: Detaydan fetch(JSON) ile yorum eklemek için
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public JsonResult AddYorumJson([FromBody] AddYorumJsonModel model)
+        {
+            if (model == null || model.JiraTaskId <= 0)
+                return Json(new { success = false, message = "Geçersiz model" });
+
+            var yorum = (model.Yorum ?? "").Trim();
+            var ekleyen = string.IsNullOrWhiteSpace(model.Ekleyen) ? "Sistem" : model.Ekleyen.Trim();
+
+            if (string.IsNullOrWhiteSpace(yorum))
+                return Json(new { success = false, message = "Yorum boş olamaz." });
+
+            var taskExists = _context.JiraTasks.Any(t => t.Id == model.JiraTaskId);
+            if (!taskExists)
+                return Json(new { success = false, message = "Görev bulunamadı." });
+
+            _context.JiraYorumlar.Add(new JiraYorum
+            {
+                JiraTaskId = model.JiraTaskId,
+                YorumMetni = yorum,
+                Ekleyen = ekleyen,
+                Tarih = DateTime.Now
+            });
+
+            _context.SaveChanges();
+            return Json(new { success = true });
+        }
+
+        public class AddYorumJsonModel
+        {
+            public int JiraTaskId { get; set; }
+            public string? Yorum { get; set; }
+            public string? Ekleyen { get; set; }
+        }
+
         [HttpPost]
         public JsonResult UpdateDurum([FromBody] UpdateDurumModel model)
         {
@@ -133,6 +213,7 @@ namespace BtOperasyonTakip.Controllers
             var task = _context.JiraTasks
                                .Include(t => t.Yorumlar)
                                .FirstOrDefault(t => t.Id == model.Id);
+
             if (task == null)
                 return Json(new { success = false, message = "Kayıt bulunamadı." });
 
@@ -177,11 +258,9 @@ namespace BtOperasyonTakip.Controllers
             if (task == null)
                 return Content("<div class='text-danger small'>Kayıt bulunamadı.</div>", "text/html");
 
-            // Jira altındaki partial'ı açık yol ile döndür
             return PartialView("~/Views/Jira/_JiraDetailCard.cshtml", task);
         }
 
-        // MODEL CLASS'LARI
         public class UpdateDurumModel
         {
             public int Id { get; set; }
