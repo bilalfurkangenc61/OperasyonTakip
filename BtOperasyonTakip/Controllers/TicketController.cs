@@ -78,6 +78,28 @@ namespace BtOperasyonTakip.Controllers
             if (!ModelState.IsValid)
                 return View(ticket);
 
+            // YENİ: Firma adı + Site adı aynıysa yeni ticket oluşturma
+            var firmaAdi = (ticket.FirmaAdi ?? string.Empty).Trim();
+            var siteAdi = (ticket.MusteriWebSitesi ?? string.Empty).Trim();
+
+            if (!string.IsNullOrWhiteSpace(firmaAdi) && !string.IsNullOrWhiteSpace(siteAdi))
+            {
+                var firmaKey = firmaAdi.ToLowerInvariant();
+                var siteKey = siteAdi.ToLowerInvariant();
+
+                var aynisiVarMi = _context.Tickets.Any(t =>
+                    ((t.FirmaAdi ?? string.Empty).Trim().ToLower()) == firmaKey &&
+                    ((t.MusteriWebSitesi ?? string.Empty).Trim().ToLower()) == siteKey &&
+                    t.Durum != "Reddedildi" &&
+                    t.Durum != "Musteri Kaydedildi");
+
+                if (aynisiVarMi)
+                {
+                    ModelState.AddModelError("", "Bu firma ve site için zaten açık bir ticket mevcut. Yeni ticket oluşturulmadı.");
+                    return View(ticket);
+                }
+            }
+
             try
             {
                 var userId = int.TryParse(User.FindFirst("UserId")?.Value, out var id) ? id : 0;
@@ -242,16 +264,24 @@ namespace BtOperasyonTakip.Controllers
             ticket.CanliAcildiTarihi = DateTime.UtcNow;
             ticket.CanliNotu = string.IsNullOrWhiteSpace(request.Not) ? null : request.Not.Trim();
 
-            // Müşteri kaydı: URL bazlı upsert
-            var mevcutMusteri = _context.Musteriler.FirstOrDefault(m => m.SiteUrl == ticket.MusteriWebSitesi);
+            // Müşteri kaydı: Firma + SiteUrl bazlı upsert (eşleşirse yeni kayıt açma)
+            var firmaAdi = (ticket.FirmaAdi ?? string.Empty).Trim();
+            var siteUrl = (ticket.MusteriWebSitesi ?? string.Empty).Trim();
+
+            var firmaKey = firmaAdi.ToLowerInvariant();
+            var siteKey = siteUrl.ToLowerInvariant();
+
+            var mevcutMusteri = _context.Musteriler.FirstOrDefault(m =>
+                ((m.Firma ?? string.Empty).Trim().ToLower()) == firmaKey &&
+                ((m.SiteUrl ?? string.Empty).Trim().ToLower()) == siteKey);
 
             Musteri musteri;
             if (mevcutMusteri != null)
             {
-                mevcutMusteri.Firma = string.IsNullOrWhiteSpace(ticket.FirmaAdi) ? mevcutMusteri.Firma : ticket.FirmaAdi;
+                mevcutMusteri.Firma = string.IsNullOrWhiteSpace(firmaAdi) ? mevcutMusteri.Firma : firmaAdi;
                 mevcutMusteri.FirmaYetkilisi = $"{ticket.YazilimciAdi} {ticket.YazilimciSoyadi}";
                 mevcutMusteri.Telefon = ticket.IrtibatNumarasi;
-                mevcutMusteri.SiteUrl = ticket.MusteriWebSitesi;
+                mevcutMusteri.SiteUrl = siteUrl;
                 mevcutMusteri.Teknoloji = ticket.TeknolojiBilgisi;
                 mevcutMusteri.Durum = "Aktif";
                 mevcutMusteri.TalepSahibi = ticket.OlusturanKullaniciAdi;
@@ -265,10 +295,10 @@ namespace BtOperasyonTakip.Controllers
             {
                 musteri = new Musteri
                 {
-                    Firma = ticket.FirmaAdi,
+                    Firma = firmaAdi,
                     FirmaYetkilisi = $"{ticket.YazilimciAdi} {ticket.YazilimciSoyadi}",
                     Telefon = ticket.IrtibatNumarasi,
-                    SiteUrl = ticket.MusteriWebSitesi,
+                    SiteUrl = siteUrl,
                     Teknoloji = ticket.TeknolojiBilgisi,
                     Durum = "Aktif",
                     TalepSahibi = ticket.OlusturanKullaniciAdi,
