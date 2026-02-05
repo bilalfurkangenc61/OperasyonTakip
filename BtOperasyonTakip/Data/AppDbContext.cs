@@ -19,5 +19,7 @@ namespace BtOperasyonTakip.Data
         public DbSet<Ticket> Tickets { get; set; }
         public DbSet<Hata> Hatalar { get; set; } // YENİ
         public DbSet<Issue> Issues { get; set; }
+
+        public DbSet<TicketAtamaLog> TicketAtamaLoglari { get; set; }
     }
 }

@@ -7,7 +7,7 @@ using System.Linq;
 
 namespace BtOperasyonTakip.Controllers
 {
-    [Authorize(Roles = "Saha,Operasyon,Uyum")]
+    [Authorize(Roles = "Saha,KurumsalSaha,Operasyon,Uyum,Admin")]
     public class TicketController : Controller
     {
         private readonly AppDbContext _context;
@@ -21,7 +21,7 @@ namespace BtOperasyonTakip.Controllers
         {
             IQueryable<Ticket> query = _context.Tickets;
 
-            if (User.IsInRole("Saha"))
+            if (User.IsInRole("Saha") || User.IsInRole("KurumsalSaha"))
             {
                 var userId = int.TryParse(User.FindFirst("UserId")?.Value, out var id) ? id : 0;
                 query = query.Where(t => t.OlusturanUserId == userId);
@@ -32,7 +32,6 @@ namespace BtOperasyonTakip.Controllers
             }
             else if (User.IsInRole("Operasyon"))
             {
-                // Atama yapılan yapıda operasyon sadece kendine atanmış ticket'ları görsün
                 var userId = int.TryParse(User.FindFirst("UserId")?.Value, out var id) ? id : 0;
 
                 query = query.Where(t =>
@@ -53,6 +52,21 @@ namespace BtOperasyonTakip.Controllers
                     t.YazilimciSoyadi.Contains(searchFirma));
             }
 
+            if (User.IsInRole("Admin"))
+            {
+                var operasyonUsers = _context.Users
+                    .Where(u => u.Role == "Operasyon")
+                    .OrderBy(u => u.Id)
+                    .Select(u => new
+                    {
+                        u.Id,
+                        Name = (u.FullName ?? u.UserName)
+                    })
+                    .ToList();
+
+                ViewBag.OperasyonUsers = operasyonUsers;
+            }
+
             var tickets = query.OrderByDescending(t => t.OlusturmaTarihi).ToList();
             ViewBag.SearchFirma = searchFirma;
 
@@ -62,7 +76,7 @@ namespace BtOperasyonTakip.Controllers
         [HttpGet]
         public IActionResult Create()
         {
-            if (!User.IsInRole("Saha"))
+            if (!(User.IsInRole("Saha") || User.IsInRole("KurumsalSaha")))
                 return Unauthorized();
 
             return View();
@@ -72,13 +86,12 @@ namespace BtOperasyonTakip.Controllers
         [ValidateAntiForgeryToken]
         public IActionResult Create(Ticket ticket)
         {
-            if (!User.IsInRole("Saha"))
+            if (!(User.IsInRole("Saha") || User.IsInRole("KurumsalSaha")))
                 return Unauthorized();
 
             if (!ModelState.IsValid)
                 return View(ticket);
 
-            // YENİ: Firma adı + Site adı aynıysa yeni ticket oluşturma
             var firmaAdi = (ticket.FirmaAdi ?? string.Empty).Trim();
             var siteAdi = (ticket.MusteriWebSitesi ?? string.Empty).Trim();
 
@@ -108,10 +121,8 @@ namespace BtOperasyonTakip.Controllers
                 ticket.OlusturanKullaniciAdi = User.Identity?.Name ?? "Bilinmiyor";
                 ticket.OlusturmaTarihi = DateTime.UtcNow;
 
-                // Akış başlangıcı
                 ticket.Durum = "Operasyon 1 Onay Bekleniyor";
 
-                // DEĞİŞİKLİK: Operasyon ekibine RASTGELE dağıtım (ilk 5 operasyon kullanıcısı içinden)
                 var operasyonAdaylari = _context.Users
                     .Where(u => u.Role == "Operasyon")
                     .OrderBy(u => u.Id)
@@ -141,10 +152,12 @@ namespace BtOperasyonTakip.Controllers
             }
         }
 
-        // OPERASYON 1: Entegrasyon (Evet/Hayır) -> Uyum'a gönder / Reddet
+        // =========================
+        // OPERASYON 1 ONAY / RED
+        // =========================
         [HttpPost]
         [Authorize(Roles = "Operasyon")]
-        public IActionResult Operasyon1Decide([FromBody] Operasyon1Request request)
+        public IActionResult Operasyon1Decide([FromBody] Operasyon1DecideRequest request)
         {
             if (request?.Id <= 0)
                 return Json(new { success = false, message = "Geçersiz Ticket ID!" });
@@ -154,43 +167,31 @@ namespace BtOperasyonTakip.Controllers
                 return Json(new { success = false, message = "Ticket bulunamadı!" });
 
             if (ticket.Durum != "Operasyon 1 Onay Bekleniyor")
-                return Json(new { success = false, message = $"Ticket bu aşamada operasyon 1 kararına uygun değil. Durum: {ticket.Durum}" });
+                return Json(new { success = false, message = $"Ticket bu aşamada Operasyon 1 kararına uygun değil. Durum: {ticket.Durum}" });
 
             var userId = int.TryParse(User.FindFirst("UserId")?.Value, out var uid) ? uid : 0;
-
-            if (ticket.AtananOperasyonUserId.HasValue && ticket.AtananOperasyonUserId.Value != userId)
-                return Json(new { success = false, message = "Bu ticket size atanmadı." });
+            if (ticket.AtananOperasyonUserId != userId)
+                return Json(new { success = false, message = "Bu ticket size atanmadığı için işlem yapamazsınız." });
 
             ticket.EntegreOlabilirMi = request.EntegreOlabilirMi;
             ticket.EntegrasyonNotu = string.IsNullOrWhiteSpace(request.Not) ? null : request.Not.Trim();
-            ticket.Operasyon1OnayTarihi = DateTime.UtcNow;
-
-            // Karar veren kişi (EVET/HAYIR her iki durumda da)
             ticket.OnaylayanUserId = userId;
             ticket.OnaylayanKullaniciAdi = User.Identity?.Name ?? "Bilinmiyor";
-            ticket.OnaylamaTarihi = DateTime.UtcNow;
+            ticket.Operasyon1OnayTarihi = DateTime.UtcNow;
 
-            if (request.EntegreOlabilirMi == false)
-            {
-                ticket.Durum = "Reddedildi";
-                ticket.KararAciklamasi = string.IsNullOrWhiteSpace(ticket.EntegrasyonNotu)
-                    ? "Entegre olamıyoruz."
-                    : ticket.EntegrasyonNotu;
-
-                _context.SaveChanges();
-                return Json(new { success = true, message = "❌ Entegre olamıyoruz. Ticket reddedildi." });
-            }
-
+            // Akış: Operasyon1 -> Uyum
             ticket.Durum = "Uyum Onayı Bekleniyor";
-            _context.SaveChanges();
 
-            return Json(new { success = true, message = "✅ Entegre olabiliyoruz. Ticket Uyum onayına gönderildi." });
+            _context.SaveChanges();
+            return Json(new { success = true, message = "✅ Operasyon 1 kararı kaydedildi. Uyum onayı bekleniyor." });
         }
 
-        // OPERASYON 2: Mail gönderdim (Evet/Hayır) -> her koşulda Saha canlı bekleniyor
+        // =========================
+        // OPERASYON 2 ONAY / RED
+        // =========================
         [HttpPost]
         [Authorize(Roles = "Operasyon")]
-        public IActionResult Operasyon2Decide([FromBody] Operasyon2Request request)
+        public IActionResult Operasyon2Decide([FromBody] Operasyon2DecideRequest request)
         {
             if (request?.Id <= 0)
                 return Json(new { success = false, message = "Geçersiz Ticket ID!" });
@@ -200,31 +201,26 @@ namespace BtOperasyonTakip.Controllers
                 return Json(new { success = false, message = "Ticket bulunamadı!" });
 
             if (ticket.Durum != "Operasyon 2 Onay Bekleniyor")
-                return Json(new { success = false, message = $"Ticket bu aşamada operasyon 2 kararına uygun değil. Durum: {ticket.Durum}" });
+                return Json(new { success = false, message = $"Ticket bu aşamada Operasyon 2 kararına uygun değil. Durum: {ticket.Durum}" });
 
             var userId = int.TryParse(User.FindFirst("UserId")?.Value, out var uid) ? uid : 0;
-
-            if (ticket.AtananOperasyonUserId.HasValue && ticket.AtananOperasyonUserId.Value != userId)
-                return Json(new { success = false, message = "Bu ticket size atanmadı." });
+            if (ticket.AtananOperasyonUserId != userId)
+                return Json(new { success = false, message = "Bu ticket size atanmadığı için işlem yapamazsınız." });
 
             ticket.MailGonderildiMi = request.MailGonderildiMi;
             ticket.MailNotu = string.IsNullOrWhiteSpace(request.Not) ? null : request.Not.Trim();
             ticket.Operasyon2OnayTarihi = DateTime.UtcNow;
 
-            // Karar veren kişi
-            ticket.OnaylayanUserId = userId;
-            ticket.OnaylayanKullaniciAdi = User.Identity?.Name ?? "Bilinmiyor";
-            ticket.OnaylamaTarihi = DateTime.UtcNow;
-
-            ticket.Durum = "Saha Canli Bekleniyor";
+            // Mail gönderildiyse saha canlıya düş
+            if (request.MailGonderildiMi)
+                ticket.Durum = "Saha Canli Bekleniyor";
 
             _context.SaveChanges();
-            return Json(new { success = true, message = "✅ Operasyon 2 kaydedildi. Saha canlı açılışını bekliyor." });
+            return Json(new { success = true, message = "✅ Operasyon 2 kararı kaydedildi." });
         }
 
-        // SAHA: Canlı ortamı açtım -> Musteriler tablosuna kayıt
         [HttpPost]
-        [Authorize(Roles = "Saha")]
+        [Authorize(Roles = "Saha,KurumsalSaha")]
         public IActionResult SahaCanliAcildi([FromBody] SahaCanliRequest request)
         {
             if (request?.Id <= 0)
@@ -236,7 +232,7 @@ namespace BtOperasyonTakip.Controllers
 
             var userId = int.TryParse(User.FindFirst("UserId")?.Value, out var uid) ? uid : 0;
             if (ticket.OlusturanUserId != userId)
-                return Json(new { success = false, message = "Sadece ticketı açan saha kullanıcısı bu işlemi yapabilir." });
+                return Json(new { success = false, message = "Sadece ticket'ı açan saha kullanıcısı bu işlemi yapabilir." });
 
             if (ticket.Durum != "Saha Canli Bekleniyor")
                 return Json(new { success = false, message = $"Ticket bu aşamada canlı açılışa uygun değil. Durum: {ticket.Durum}" });
@@ -244,7 +240,6 @@ namespace BtOperasyonTakip.Controllers
             ticket.CanliAcildiTarihi = DateTime.UtcNow;
             ticket.CanliNotu = string.IsNullOrWhiteSpace(request.Not) ? null : request.Not.Trim();
 
-            // Müşteri kaydı: Firma + SiteUrl bazlı upsert (eşleşirse yeni kayıt açma)
             var firmaAdi = (ticket.FirmaAdi ?? string.Empty).Trim();
             var siteUrl = (ticket.MusteriWebSitesi ?? string.Empty).Trim();
 
@@ -254,6 +249,9 @@ namespace BtOperasyonTakip.Controllers
             var mevcutMusteri = _context.Musteriler.FirstOrDefault(m =>
                 ((m.Firma ?? string.Empty).Trim().ToLower()) == firmaKey &&
                 ((m.SiteUrl ?? string.Empty).Trim().ToLower()) == siteKey);
+
+            var isKurumsal = User.IsInRole("KurumsalSaha");
+            var kaynak = isKurumsal ? "Kurumsal" : null;
 
             Musteri musteri;
             if (mevcutMusteri != null)
@@ -267,6 +265,9 @@ namespace BtOperasyonTakip.Controllers
                 mevcutMusteri.TalepSahibi = ticket.OlusturanKullaniciAdi;
                 mevcutMusteri.Aciklama = ticket.Aciklama;
                 mevcutMusteri.KayitTarihi = DateTime.Now;
+
+                if (isKurumsal)
+                    mevcutMusteri.Kaynak = kaynak;
 
                 musteri = mevcutMusteri;
                 _context.SaveChanges();
@@ -283,7 +284,8 @@ namespace BtOperasyonTakip.Controllers
                     Durum = "Aktif",
                     TalepSahibi = ticket.OlusturanKullaniciAdi,
                     Aciklama = ticket.Aciklama,
-                    KayitTarihi = DateTime.Now
+                    KayitTarihi = DateTime.Now,
+                    Kaynak = kaynak
                 };
 
                 _context.Musteriler.Add(musteri);
@@ -298,9 +300,8 @@ namespace BtOperasyonTakip.Controllers
             return Json(new { success = true, message = "✅ Canlı açıldı. Müşteri kaydı oluşturuldu/güncellendi." });
         }
 
-        // SAHA: Son aşamada reddet (Saha Canli Bekleniyor -> Reddedildi)
         [HttpPost]
-        [Authorize(Roles = "Saha")]
+        [Authorize(Roles = "Saha,KurumsalSaha")]
         public IActionResult SahaReddet([FromBody] SahaRedRequest request)
         {
             if (request?.Id <= 0)
@@ -312,7 +313,7 @@ namespace BtOperasyonTakip.Controllers
 
             var userId = int.TryParse(User.FindFirst("UserId")?.Value, out var uid) ? uid : 0;
             if (ticket.OlusturanUserId != userId)
-                return Json(new { success = false, message = "Sadece ticketı açan saha kullanıcısı bu işlemi yapabilir." });
+                return Json(new { success = false, message = "Sadece ticket'ı açan saha kullanıcısı bu işlemi yapabilir." });
 
             if (ticket.Durum != "Saha Canli Bekleniyor")
                 return Json(new { success = false, message = $"Ticket bu aşamada saha reddine uygun değil. Durum: {ticket.Durum}" });
@@ -332,78 +333,69 @@ namespace BtOperasyonTakip.Controllers
             return Json(new { success = true, message = "❌ Ticket saha tarafından reddedildi." });
         }
 
-        // --- Eski endpointler (geriye dönük) ---
         [HttpPost]
-        [Authorize(Roles = "Operasyon")]
-        public IActionResult ApproveWithTechnology([FromBody] ApproveWithTechRequest request)
+        [Authorize(Roles = "Admin")]
+        public IActionResult ChangeAssignment([FromBody] ChangeAssignmentRequest request)
         {
-            if (request?.Id <= 0)
-                return Json(new { success = false, message = "Geçersiz Ticket ID!" });
+            if (request == null)
+                return BadRequest(new { success = false, message = "Geçersiz istek." });
 
-            var ticket = _context.Tickets.FirstOrDefault(t => t.Id == request.Id);
+            if (request.TicketId <= 0)
+                return BadRequest(new { success = false, message = "Geçersiz Ticket ID." });
+
+            if (request.YeniOperasyonUserId <= 0)
+                return BadRequest(new { success = false, message = "Yeni operasyon seçiniz." });
+
+            var neden = (request.Neden ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(neden))
+                return BadRequest(new { success = false, message = "Değişiklik nedeni zorunlu." });
+
+            if (neden.Length > 500)
+                return BadRequest(new { success = false, message = "Değişiklik nedeni maksimum 500 karakter olmalıdır." });
+
+            var ticket = _context.Tickets.FirstOrDefault(t => t.Id == request.TicketId);
             if (ticket == null)
-                return Json(new { success = false, message = "Ticket bulunamadı!" });
+                return NotFound(new { success = false, message = "Ticket bulunamadı." });
 
-            if (ticket.Durum != "Operasyon 2 Onay Bekleniyor")
-                return Json(new { success = false, message = $"Ticket bu aşamada onaya uygun değil. Durum: {ticket.Durum}" });
+            var newUser = _context.Users.FirstOrDefault(u => u.Id == request.YeniOperasyonUserId && u.Role == "Operasyon");
+            if (newUser == null)
+                return BadRequest(new { success = false, message = "Seçilen kullanıcı operasyon rolünde değil veya bulunamadı." });
 
-            var userId = int.TryParse(User.FindFirst("UserId")?.Value, out var uid) ? uid : 0;
-            if (ticket.AtananOperasyonUserId.HasValue && ticket.AtananOperasyonUserId.Value != userId)
-                return Json(new { success = false, message = "Bu ticket size atanmadı." });
+            var oldAssigneeName = ticket.AtananOperasyonKullaniciAdi;
+            var oldAssigneeId = ticket.AtananOperasyonUserId;
 
-            if (!string.IsNullOrWhiteSpace(request.TeknolojiBilgisi))
-                ticket.TeknolojiBilgisi = request.TeknolojiBilgisi.Trim();
+            ticket.AtananOperasyonUserId = newUser.Id;
+            ticket.AtananOperasyonKullaniciAdi = newUser.FullName ?? newUser.UserName;
+            ticket.AtanmaTarihi = DateTime.UtcNow;
 
-            ticket.MailGonderildiMi = true;
-            ticket.MailNotu = string.IsNullOrWhiteSpace(request.KararAciklamasi) ? null : request.KararAciklamasi.Trim();
-            ticket.Operasyon2OnayTarihi = DateTime.UtcNow;
-            ticket.Durum = "Saha Canli Bekleniyor";
+            var adminId = int.TryParse(User.FindFirst("UserId")?.Value, out var adminUid) ? adminUid : 0;
+            var adminName = User.Identity?.Name ?? "Bilinmiyor";
 
-            ticket.OnaylayanUserId = userId;
-            ticket.OnaylayanKullaniciAdi = User.Identity?.Name ?? "Bilinmiyor";
-            ticket.OnaylamaTarihi = DateTime.UtcNow;
+            _context.TicketAtamaLoglari.Add(new TicketAtamaLog
+            {
+                TicketId = ticket.Id,
+                EskiOperasyonUserId = oldAssigneeId,
+                EskiOperasyonKullaniciAdi = oldAssigneeName,
+                YeniOperasyonUserId = newUser.Id,
+                YeniOperasyonKullaniciAdi = ticket.AtananOperasyonKullaniciAdi,
+                DegisiklikNedeni = neden,
+                DegistirenUserId = adminId,
+                DegistirenKullaniciAdi = adminName,
+                DegisiklikTarihi = DateTime.UtcNow
+            });
 
             _context.SaveChanges();
-            return Json(new { success = true, message = "✅ Güncellendi. Saha canlı açılışını bekliyor." });
+            return Json(new { success = true, message = "✅ Atama güncellendi." });
         }
 
-        [HttpPost]
-        [Authorize(Roles = "Operasyon")]
-        public IActionResult Reject([FromBody] ApproveRejectRequest request)
-        {
-            if (request?.Id <= 0)
-                return Json(new { success = false, message = "Geçersiz Ticket ID!" });
-
-            var ticket = _context.Tickets.FirstOrDefault(t => t.Id == request.Id);
-            if (ticket == null)
-                return Json(new { success = false, message = "Ticket bulunamadı!" });
-
-            var d = ticket.Durum?.Trim() ?? "";
-            if (d != "Operasyon 1 Onay Bekleniyor" && d != "Operasyon 2 Onay Bekleniyor")
-                return Json(new { success = false, message = $"Ticket bu aşamada operasyon reddine uygun değil. Durum: {ticket.Durum}" });
-
-            var userId = int.TryParse(User.FindFirst("UserId")?.Value, out var uid) ? uid : 0;
-            if (ticket.AtananOperasyonUserId.HasValue && ticket.AtananOperasyonUserId.Value != userId)
-                return Json(new { success = false, message = "Bu ticket size atanmadı." });
-
-            ticket.Durum = "Reddedildi";
-            ticket.OnaylayanUserId = userId;
-            ticket.OnaylayanKullaniciAdi = User.Identity?.Name ?? "Bilinmiyor";
-            ticket.OnaylamaTarihi = DateTime.UtcNow;
-            ticket.KararAciklamasi = string.IsNullOrWhiteSpace(request.KararAciklamasi) ? "Açıklama yapılmadı" : request.KararAciklamasi.Trim();
-
-            _context.SaveChanges();
-            return Json(new { success = true, message = "❌ Ticket reddedildi!" });
-        }
-
-        public sealed class Operasyon1Request
+        public sealed class Operasyon1DecideRequest
         {
             public int Id { get; set; }
             public bool EntegreOlabilirMi { get; set; }
             public string? Not { get; set; }
         }
 
-        public sealed class Operasyon2Request
+        public sealed class Operasyon2DecideRequest
         {
             public int Id { get; set; }
             public bool MailGonderildiMi { get; set; }
@@ -422,17 +414,11 @@ namespace BtOperasyonTakip.Controllers
             public string? Not { get; set; }
         }
 
-        public sealed class ApproveWithTechRequest
+        public sealed class ChangeAssignmentRequest
         {
-            public int Id { get; set; }
-            public string? TeknolojiBilgisi { get; set; }
-            public string? KararAciklamasi { get; set; }
-        }
-
-        public sealed class ApproveRejectRequest
-        {
-            public int Id { get; set; }
-            public string? KararAciklamasi { get; set; }
+            public int TicketId { get; set; }
+            public int YeniOperasyonUserId { get; set; }
+            public string? Neden { get; set; }
         }
     }
 }

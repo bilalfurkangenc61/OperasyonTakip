@@ -151,6 +151,12 @@
                     {
                         <li><a class="nav-link text-white @(ViewContext.RouteData.Values["controller"]?.ToString() == "Uyum" ? "active" : "")" asp-controller="Uyum" asp-action="Index">🛡️ Uyum</a></li>
                     }
+                    
+                    else if (User.IsInRole("Saha") || User.IsInRole("KurumsalSaha"))
+                    {
+                        <li><a class="nav-link text-white @(ViewContext.RouteData.Values["controller"]?.ToString() == "Ticket" ? "active" : "")" asp-controller="Ticket" asp-action="Index">🧾 Ticketlar</a></li>
+                        <li><a class="nav-link text-white @(ViewContext.RouteData.Values["controller"]?.ToString() == "Hatalar" ? "active" : "")" asp-controller="Hatalar" asp-action="Index">🚨 Hatalar</a></li>
+                    }
                 </ul>
 
                 <div class="dropdown">

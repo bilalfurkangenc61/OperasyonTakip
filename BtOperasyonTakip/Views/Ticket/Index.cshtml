@@ -11,7 +11,7 @@
             <h2 class="page-title">🧾 Ticketlar</h2>
         </div>
         <div class="col-md-6 text-end">
-            @if (User.IsInRole("Saha"))
+            @if (User.IsInRole("Saha") || User.IsInRole("KurumsalSaha"))
             {
                 <a asp-action="Create" class="btn btn-primary">
                     <i class="bi bi-plus-circle"></i> Yeni Ticket
@@ -202,7 +202,7 @@
                                     </button>
                                 }
 
-                                @if (User.IsInRole("Saha") && isSahaCanli)
+                                @if ((User.IsInRole("Saha") || User.IsInRole("KurumsalSaha")) && isSahaCanli)
                                 {
                                     <button type="button" class="btn btn-sm btn-primary saha-canli-btn" data-id="@ticket.Id" title="Canlı ortamı açtım">
                                         <i class="bi bi-broadcast"></i>
@@ -210,6 +210,17 @@
 
                                     <button type="button" class="btn btn-sm btn-danger saha-red-btn" data-id="@ticket.Id" title="Canlı aşamasında reddet">
                                         <i class="bi bi-x-octagon"></i>
+                                    </button>
+                                }
+
+                                @if (User.IsInRole("Admin"))
+                                {
+                                    <button type="button"
+                                            class="btn btn-sm btn-warning change-assign-open-btn"
+                                            data-ticket-id="@ticket.Id"
+                                            data-current-assignee="@(ticket.AtananOperasyonKullaniciAdi ?? "")"
+                                            title="Atanan Operasyon'u değiştir">
+                                        <i class="bi bi-person-gear"></i>
                                     </button>
                                 }
                             </td>
@@ -282,6 +293,52 @@
         </div>
     </div>
 </div>
+
+@if (User.IsInRole("Admin"))
+{
+    <div class="modal fade" id="changeAssignModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Atama Değiştir</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    <input type="hidden" id="changeAssignTicketId" />
+
+                    <div class="mb-2 text-muted">
+                        <small>Mevcut atanan: <span id="changeAssignCurrentAssignee">-</span></small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Yeni Operasyon</label>
+                        <select class="form-select" id="changeAssignUserId" required>
+                            <option value="">Seçiniz...</option>
+                            @foreach (var u in (IEnumerable<dynamic>)(ViewBag.OperasyonUsers ?? new List<dynamic>()))
+                            {
+                                <option value="@u.Id">@u.Name</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Değişiklik Nedeni (zorunlu)</label>
+                        <textarea class="form-control" id="changeAssignReason" rows="3" maxlength="500" required></textarea>
+                        <div class="form-text">Maksimum 500 karakter.</div>
+                    </div>
+
+                    <div class="alert alert-danger d-none" id="changeAssignError"></div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                    <button type="button" class="btn btn-primary" id="changeAssignSaveBtn">Kaydet</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
 
 @section Scripts {
     <script>
@@ -403,5 +460,72 @@
                 alert("Hata: " + (e?.message || e));
             }
         });
+
+        // Admin atama değiştirme UI
+        (function () {
+            const modalEl = document.getElementById("changeAssignModal");
+            if (!modalEl) return;
+
+            const bsModal = new bootstrap.Modal(modalEl);
+
+            const $ticketId = $("#changeAssignTicketId");
+            const $currentAssignee = $("#changeAssignCurrentAssignee");
+            const $userId = $("#changeAssignUserId");
+            const $reason = $("#changeAssignReason");
+            const $error = $("#changeAssignError");
+
+            function showError(msg) {
+                $error.text(msg || "Hata").removeClass("d-none");
+            }
+
+            function clearError() {
+                $error.addClass("d-none").text("");
+            }
+
+            $(document).on("click", ".change-assign-open-btn", function () {
+                clearError();
+
+                const ticketId = Number($(this).data("ticket-id"));
+                const currentAssignee = ($(this).data("current-assignee") || "").toString();
+
+                $ticketId.val(ticketId);
+                $currentAssignee.text(currentAssignee || "-");
+
+                $userId.val("");
+                $reason.val("");
+
+                bsModal.show();
+            });
+
+            $("#changeAssignSaveBtn").on("click", async function () {
+                clearError();
+
+                const ticketId = Number($ticketId.val());
+                const yeniOperasyonUserId = Number($userId.val());
+                const neden = ($reason.val() || "").toString().trim();
+
+                if (!ticketId || ticketId <= 0) { showError("Geçersiz Ticket ID."); return; }
+                if (!yeniOperasyonUserId || yeniOperasyonUserId <= 0) { showError("Yeni operasyon seçiniz."); return; }
+                if (!neden) { showError("Değişiklik nedeni zorunlu."); return; }
+
+                try {
+                    const data = await postJson("@Url.Action("ChangeAssignment", "Ticket")", {
+                        ticketId,
+                        yeniOperasyonUserId,
+                        neden
+                    });
+
+                    if (!data?.success) {
+                        showError(data?.message || "İşlem başarısız.");
+                        return;
+                    }
+
+                    bsModal.hide();
+                    location.reload();
+                } catch (e) {
+                    showError("Hata: " + (e?.message || e));
+                }
+            });
+        })();
     </script>
 }

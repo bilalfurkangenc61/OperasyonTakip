@@ -19,5 +19,8 @@ namespace BtOperasyonTakip.Models
         public DateTime? KayitTarihi { get; set; } = DateTime.Now;
 
         public string? FirmaYetkilisi { get; set; }
+
+        [MaxLength(50)]
+        public string? Kaynak { get; set; } // "Kurumsal" / null (eski kayıtlar)
     }
 }

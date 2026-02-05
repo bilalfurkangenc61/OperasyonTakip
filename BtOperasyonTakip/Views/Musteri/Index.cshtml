@@ -106,6 +106,7 @@
                             <th>Teknoloji</th>
                             <th>Durum</th>
                             <th>Talep Sahibi</th>
+                            <th>Kaynak</th>
                             <th>Kayıt Tarihi</th>
                             <th>Açıklama</th>
                             <th width="100">İşlem</th>
@@ -204,7 +205,7 @@
                     .replace(/&/g, '&amp;')
                     .replace(/</g, '&lt;')
                     .replace(/>/g, '&gt;')
-                    .replace(/"/g, '&quot;')
+                    .replace(/\"/g, '&quot;')
                     .replace(/'/g, '&#39;');
             }
 
@@ -237,7 +238,7 @@
                 processing: true,
                 serverSide: true,
                 searching: true,
-                order: [[8, 'desc']],
+                order: [[9, 'desc']], // Kayit Tarihi kolonu index 9
                 responsive: false,
                 deferRender: true,
                 pageLength: 25,
@@ -285,12 +286,19 @@
                             const v = String(data ?? '');
                             const cls =
                                 v === 'Aktif' ? 'bg-success' :
-                                v === 'Pasif' ? 'bg-danger' :
-                                v === 'Beklemede' ? 'bg-warning' : 'bg-secondary';
+                                    v === 'Pasif' ? 'bg-danger' :
+                                        v === 'Beklemede' ? 'bg-warning' : 'bg-secondary';
                             return `<span class="badge ${cls}">${escapeHtml(v)}</span>`;
                         }
                     },
                     { data: 'talepSahibi' },
+                    {
+                        data: 'kaynak',
+                        render: function (data) {
+                            const v = String(data ?? '').trim();
+                            return v ? escapeHtml(v) : '-';
+                        }
+                    },
                     { data: 'kayitTarihiText' },
                     {
                         data: 'aciklama',
@@ -330,7 +338,6 @@
                     return;
                 }
 
-                // DİKKAT: Export endpoint'i
                 const url = `/Musteri/ExportExcelByMonth?month=${encodeURIComponent(month)}`;
                 window.location.href = url;
             });
