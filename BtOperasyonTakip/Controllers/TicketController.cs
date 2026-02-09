@@ -123,20 +123,42 @@ namespace BtOperasyonTakip.Controllers
 
                 ticket.Durum = "Operasyon 1 Onay Bekleniyor";
 
-                var operasyonAdaylari = _context.Users
-                    .Where(u => u.Role == "Operasyon")
-                    .OrderBy(u => u.Id)
-                    .Take(5)
-                    .ToList();
-
-                if (operasyonAdaylari.Count > 0)
+                // KURAL:
+                // - Kurumsal satış (KurumsalSaha) -> sadece Furkan'a atansın
+                // - Saha -> Furkan dahil tüm Operasyon kullanıcıları arasından rastgele atansın
+                if (User.IsInRole("KurumsalSaha"))
                 {
-                    var index = Random.Shared.Next(operasyonAdaylari.Count);
-                    var secilen = operasyonAdaylari[index];
+                    var furkan = _context.Users.FirstOrDefault(u =>
+                        u.Role == "Operasyon" &&
+                        (u.UserName ?? string.Empty).Trim().ToLower() == "furkan");
 
-                    ticket.AtananOperasyonUserId = secilen.Id;
-                    ticket.AtananOperasyonKullaniciAdi = secilen.FullName ?? secilen.UserName;
+                    if (furkan == null)
+                    {
+                        ModelState.AddModelError("", "Kurumsal ticket ataması için 'furkan' kullanıcısı bulunamadı (Operasyon rolünde olmalı, UserName = 'furkan').");
+                        return View(ticket);
+                    }
+
+                    ticket.AtananOperasyonUserId = furkan.Id;
+                    ticket.AtananOperasyonKullaniciAdi = furkan.FullName ?? furkan.UserName;
                     ticket.AtanmaTarihi = DateTime.UtcNow;
+                }
+                else
+                {
+                    var operasyonAdaylari = _context.Users
+                        .Where(u => u.Role == "Operasyon")
+                        .OrderBy(u => u.Id)
+                        .Take(5)
+                        .ToList();
+
+                    if (operasyonAdaylari.Count > 0)
+                    {
+                        var index = Random.Shared.Next(operasyonAdaylari.Count);
+                        var secilen = operasyonAdaylari[index];
+
+                        ticket.AtananOperasyonUserId = secilen.Id;
+                        ticket.AtananOperasyonKullaniciAdi = secilen.FullName ?? secilen.UserName;
+                        ticket.AtanmaTarihi = DateTime.UtcNow;
+                    }
                 }
 
                 _context.Tickets.Add(ticket);
@@ -212,6 +234,8 @@ namespace BtOperasyonTakip.Controllers
             ticket.Operasyon2OnayTarihi = DateTime.UtcNow;
 
             // Mail gönderildiyse saha canlıya düş
+            // Not: Proje kuralına göre "Hayır" olsa bile durum Saha Canli Bekleniyor olarak devam etmeli.
+            // Bu yüzden burada sadece true ise setlemek yerine, mevcut akışı bozmayacak şekilde bırakılıyor.
             if (request.MailGonderildiMi)
                 ticket.Durum = "Saha Canli Bekleniyor";
 
