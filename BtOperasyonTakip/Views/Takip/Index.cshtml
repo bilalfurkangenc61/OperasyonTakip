@@ -27,10 +27,15 @@
             </div>
         </div>
 
-        <div class="d-flex flex-wrap gap-2">
+        <div class="d-flex flex-wrap gap-2 align-items-center">
             <span class="badge rounded-pill text-bg-secondary">Beklemede: @beklemedeCount</span>
             <span class="badge rounded-pill text-bg-primary">Aktif: @aktifCount</span>
             <span class="badge rounded-pill text-bg-success">Tamamlandı: @tamamlandiCount</span>
+
+            <a class="btn btn-sm btn-success"
+               href="@Url.Action("ExportExcelZip", "Takip", new { q = q })">
+                Excel (Ay Kırılımlı)
+            </a>
         </div>
     </div>
 
@@ -49,6 +54,7 @@
                         <label class="form-label">İş Adı</label>
                         <input name="JiraId" class="form-control" required />
                     </div>
+
                     <div class="col-md-4">
                         <label class="form-label">Talep Konusu</label>
                         <input name="TalepKonusu" class="form-control" required />
@@ -85,7 +91,6 @@
         </div>
     </div>
 
-    <!-- Server-side Search + Paging -->
     <div class="card shadow-sm mb-3">
         <div class="card-body">
             <form method="get" asp-controller="Takip" asp-action="Index" class="row align-items-end g-2">
@@ -391,7 +396,7 @@
             }
         });
 
-        // ✅ ASSIGN (Takip Eden Kaydet) - detail içinden
+        // ✅ ASSIGN (Takip Eden Kaydet) - detail içinden  [ANTI-FORGERY EKLENDİ]
         document.addEventListener('click', async (e) => {
             const btn = e.target.closest('.btn-assign');
             if (!btn) return;
@@ -408,9 +413,15 @@
             if (msg) msg.textContent = 'Kaydediliyor...';
 
             try {
+                const token = getAntiForgeryToken();
+                if (!token) throw new Error('AntiForgery token bulunamadı');
+
                 const resp = await fetch('@Url.Action("Assign", "Takip")', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'RequestVerificationToken': token
+                    },
                     body: JSON.stringify({ id, takipEden })
                 });
 
@@ -430,7 +441,7 @@
             }
         });
 
-              document.addEventListener('click', async (e) => {
+        document.addEventListener('click', async (e) => {
             const btn = e.target.closest('.btn-yorum-ekle');
             if (!btn) return;
 
@@ -464,16 +475,12 @@
                 const data = await resp.json();
                 if (!data.success) throw new Error(data.message || 'Yorum eklenemedi');
 
-                // ✅ Detay açık kalsın: inputları temizle
                 if (yorumEl) yorumEl.value = '';
                 if (ekleyenEl) ekleyenEl.value = '';
                 if (msg) msg.textContent = 'Eklendi.';
                 setTimeout(() => { if (msg) msg.textContent = ''; }, 1200);
 
-                // ✅ Listeye anlık ekle
                 let list = detail.querySelector('ul.list-unstyled');
-                const empty = detail.querySelector('.text-muted'); // "Henüz yorum yok." da olabilir, genel text-muted var
-                // Daha güvenlisi: "Henüz yorum yok." yazısını hedefle
                 const noComment = Array.from(detail.querySelectorAll('.text-muted')).find(x => x.textContent?.trim() === 'Henüz yorum yok.');
                 if (noComment) noComment.remove();
 
@@ -515,9 +522,15 @@
             if (!confirm('Bu kaydı silmek istiyor musunuz?')) return;
 
             try {
+                const token = getAntiForgeryToken();
+                if (!token) throw new Error('AntiForgery token bulunamadı');
+
                 const resp = await fetch('@Url.Action("Delete", "Takip")', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'RequestVerificationToken': token
+                    },
                     body: JSON.stringify({ id })
                 });
 
@@ -525,104 +538,81 @@
                 const data = await resp.json();
                 if (!data.success) throw new Error(data.message || 'Silinemedi');
 
-                const detail = card.nextElementSibling;
-                if (detail && detail.classList.contains('task-detail')) detail.remove();
+                const existing = card.nextElementSibling;
+                if (existing && existing.classList.contains('task-detail')) existing.remove();
+
                 card.remove();
                 updateColumnCounts();
             } catch (err) {
-                alert('Silme hatası: ' + err);
+                alert('Silinemedi: ' + err);
             }
         });
 
-        // Durum değişimi (select)
-        document.querySelectorAll('.task-status').forEach(sel => {
-            sel.addEventListener('change', async (e) => {
-                const select = e.currentTarget;
-                const id = parseInt(select.getAttribute('data-id'));
-                const yeniDurum = select.value;
+        // ✅ DURUM SELECT (Takip/UpdateDurum)
+        document.addEventListener('change', async (e) => {
+            const sel = e.target.closest('.task-status');
+            if (!sel) return;
 
-                const card = select.closest('.task-card');
-                const msg = card ? card.querySelector('.task-status-msg') : null;
+            const id = parseInt(sel.getAttribute('data-id'));
+            const yeniDurum = sel.value;
+            const wrap = sel.closest('.d-flex');
+            const msg = wrap ? wrap.querySelector('.task-status-msg') : null;
 
-                const oldZone = card ? card.closest('.dropzone') : null;
-                const oldStatus = oldZone ? oldZone.getAttribute('data-status') : null;
+            if (msg) msg.textContent = 'Kaydediliyor...';
 
-                const targetZone = document.querySelector(`.dropzone[data-status="${yeniDurum}"]`);
+            try {
+                const resp = await fetch('@Url.Action("UpdateDurum", "Takip")', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id, yeniDurum })
+                });
 
-                if (card && targetZone && targetZone !== oldZone) {
-                    targetZone.appendChild(card);
-                    setCardStatusClass(card, yeniDurum);
-                }
+                if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                const data = await resp.json();
+                if (!data.success) throw new Error(data.message || 'Güncellenemedi');
 
-                if (msg) msg.textContent = 'Kaydediliyor...';
+                const card = sel.closest('.task-card');
+                setCardStatusClass(card, yeniDurum);
 
-                try {
-                    const resp = await fetch('@Url.Action("UpdateDurum", "Takip")', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ id, yeniDurum })
-                    });
-
-                    if (!resp.ok) throw new Error('HTTP ' + resp.status);
-
-                    const data = await resp.json();
-                    if (!data.success) throw new Error(data.message || 'Güncellenemedi');
-
-                    if (msg) msg.textContent = '';
-                    updateColumnCounts();
-                } catch (err) {
-                    if (card && oldZone) oldZone.appendChild(card);
-                    if (oldStatus) {
-                        select.value = oldStatus;
-                        setCardStatusClass(card, oldStatus);
-                    }
-                    if (msg) msg.textContent = '';
-                    alert('Durum güncellemede hata: ' + err);
-                }
-            });
+                if (msg) msg.textContent = 'Kaydedildi.';
+                setTimeout(() => { if (msg) msg.textContent = ''; }, 1000);
+            } catch (err) {
+                if (msg) msg.textContent = '';
+                alert('Durum güncellenemedi: ' + err);
+            }
         });
 
-        // Drag & drop
-        let draggedCard = null;
+        // ✅ DRAG&DROP (kolonlar arası taşıma)
+        let dragged = null;
 
-        document.querySelectorAll('.draggable').forEach(card => {
-            card.addEventListener('dragstart', (e) => {
-                draggedCard = e.currentTarget;
-                e.dataTransfer.effectAllowed = 'move';
-                draggedCard.classList.add('opacity-50');
-            });
+        document.addEventListener('dragstart', (e) => {
+            const card = e.target.closest('.task-card');
+            if (!card) return;
+            dragged = card;
+            setTimeout(() => card.classList.add('opacity-50'), 0);
+        });
 
-            card.addEventListener('dragend', () => {
-                if (draggedCard) draggedCard.classList.remove('opacity-50');
-                draggedCard = null;
-            });
+        document.addEventListener('dragend', (e) => {
+            const card = e.target.closest('.task-card');
+            if (!card) return;
+            card.classList.remove('opacity-50');
+            dragged = null;
         });
 
         document.querySelectorAll('.dropzone').forEach(zone => {
-            zone.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                zone.classList.add('border', 'border-primary', 'bg-light');
-                e.dataTransfer.dropEffect = 'move';
-            });
-
-            zone.addEventListener('dragleave', () => {
-                zone.classList.remove('border', 'border-primary', 'bg-light');
-            });
+            zone.addEventListener('dragover', (e) => e.preventDefault());
 
             zone.addEventListener('drop', async (e) => {
                 e.preventDefault();
-                zone.classList.remove('border', 'border-primary', 'bg-light');
-                if (!draggedCard) return;
+                if (!dragged) return;
 
-                const id = parseInt(draggedCard.getAttribute('data-id'));
+                const id = parseInt(dragged.getAttribute('data-id'));
                 const yeniDurum = zone.getAttribute('data-status');
+                if (!id || !yeniDurum) return;
 
-                const oldParent = draggedCard.parentElement;
-                zone.appendChild(draggedCard);
-
-                setCardStatusClass(draggedCard, yeniDurum);
-                const sel = draggedCard.querySelector('.task-status');
-                if (sel) sel.value = yeniDurum;
+                zone.appendChild(dragged);
+                setCardStatusClass(dragged, yeniDurum);
+                updateColumnCounts();
 
                 try {
                     const resp = await fetch('@Url.Action("UpdateDurum", "Takip")', {
@@ -632,76 +622,12 @@
                     });
 
                     if (!resp.ok) throw new Error('HTTP ' + resp.status);
-
                     const data = await resp.json();
-                    if (!data.success) {
-                        oldParent.appendChild(draggedCard);
-                        const oldStatus = oldParent ? oldParent.getAttribute('data-status') : null;
-                        if (oldStatus) {
-                            setCardStatusClass(draggedCard, oldStatus);
-                            if (sel) sel.value = oldStatus;
-                        }
-                        alert('Durum güncellenemedi: ' + (data.message || 'Hata'));
-                    } else {
-                        updateColumnCounts();
-                    }
+                    if (!data.success) throw new Error(data.message || 'Güncellenemedi');
                 } catch (err) {
-                    oldParent.appendChild(draggedCard);
-                    const oldStatus = oldParent ? oldParent.getAttribute('data-status') : null;
-                    if (oldStatus) {
-                        setCardStatusClass(draggedCard, oldStatus);
-                        if (sel) sel.value = oldStatus;
-                    }
-                    alert('Durum güncellemede hata: ' + err);
+                    alert('Durum güncellenemedi: ' + err);
                 }
             });
         });
-
-        applyBoardStatusFilter();
-        updateColumnCounts();
     </script>
-
-    <style>
-        .board-col-header {
-            background: #fff;
-            border: 1px solid rgba(0,0,0,.08);
-            border-radius: .75rem;
-            padding: .6rem .75rem;
-        }
-
-        .dropzone {
-            min-height: 80px;
-            border: 1px dashed rgba(0,0,0,.15);
-            border-radius: .75rem;
-            padding: .5rem;
-            background: rgba(0,0,0,.02);
-        }
-
-        .task-card {
-            border-radius: .75rem;
-            border: 1px solid rgba(0,0,0,.08);
-            box-shadow: 0 1px 8px rgba(0,0,0,.04);
-            overflow: hidden;
-        }
-
-            .task-card .card-body {
-                padding: .75rem;
-            }
-
-            .task-card.status-beklemede {
-                border-left: 6px solid #6c757d;
-            }
-
-            .task-card.status-aktif {
-                border-left: 6px solid #0d6efd;
-            }
-
-            .task-card.status-tamamlandi {
-                border-left: 6px solid #198754;
-            }
-
-            .task-card.opacity-50 {
-                opacity: .6 !important;
-            }
-    </style>
 }

@@ -1,6 +1,9 @@
-﻿@{
+﻿@using Microsoft.AspNetCore.Antiforgery
+@inject IAntiforgery Antiforgery
+@{
     Layout = "_Layout";
     ViewData["Title"] = "Ticketlar";
+    var antiForgeryToken = Antiforgery.GetAndStoreTokens(Context).RequestToken;
 }
 
 @model List<BtOperasyonTakip.Models.Ticket>
@@ -90,6 +93,7 @@
 
                         var isOp1 = string.Equals(status, "Operasyon 1 Onay Bekleniyor", StringComparison.OrdinalIgnoreCase);
                         var isOp2 = string.Equals(status, "Operasyon 2 Onay Bekleniyor", StringComparison.OrdinalIgnoreCase);
+                        var isEntegrasyonBekliyor = string.Equals(status, "Entegrasyon Bekleniyor", StringComparison.OrdinalIgnoreCase);
                         var isSahaCanli = string.Equals(status, "Saha Canli Bekleniyor", StringComparison.OrdinalIgnoreCase);
 
                         var uyumKararVeren = string.IsNullOrWhiteSpace(ticket.UyumOnaylayanKullaniciAdi)
@@ -199,6 +203,13 @@
                                     </button>
                                     <button type="button" class="btn btn-sm btn-secondary op2-mail-no-btn" data-id="@ticket.Id" title="Mail gönderdim: Hayır">
                                         <i class="bi bi-envelope-x"></i>
+                                    </button>
+                                }
+
+                                @if (User.IsInRole("Operasyon") && isEntegrasyonBekliyor)
+                                {
+                                    <button type="button" class="btn btn-sm btn-primary entegrasyon-tamam-btn" data-id="@ticket.Id" title="Entegrasyon Tamamlandı">
+                                        <i class="bi bi-check2-all"></i>
                                     </button>
                                 }
 
@@ -342,6 +353,8 @@
 
 @section Scripts {
     <script>
+        const __requestVerificationToken = "@antiForgeryToken";
+
         $(document).on("click", ".view-detail-btn", function () {
             const $btn = $(this);
 
@@ -372,7 +385,10 @@
         async function postJson(url, payload) {
             const res = await fetch(url, {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: {
+                    "Content-Type": "application/json",
+                    "RequestVerificationToken": __requestVerificationToken
+                },
                 body: JSON.stringify(payload)
             });
 
@@ -434,6 +450,20 @@
             }
         });
 
+        $(document).on("click", ".entegrasyon-tamam-btn", async function () {
+            const id = Number($(this).data("id"));
+            const ok = confirm("Entegrasyon tamamlandı olarak işaretlemek istiyor musunuz?");
+            if (!ok) return;
+
+            try {
+                const data = await postJson("@Url.Action("EntegrasyonTamamlandi", "Ticket")", { id });
+                alert(data?.message || "İşlem tamamlandı.");
+                if (data?.success) location.reload();
+            } catch (e) {
+                alert("Hata: " + (e?.message || e));
+            }
+        });
+
         $(document).on("click", ".saha-canli-btn", async function () {
             const id = Number($(this).data("id"));
             const not = (prompt("Canlı açılış notu (opsiyonel):", "") || "").trim();
@@ -461,7 +491,7 @@
             }
         });
 
-        // Admin atama değiştirme UI
+        // Admin atama değiştirme UI (sadece Admin modal render edildiğinde çalışır)
         (function () {
             const modalEl = document.getElementById("changeAssignModal");
             if (!modalEl) return;

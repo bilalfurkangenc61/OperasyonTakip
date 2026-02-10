@@ -13,11 +13,21 @@
 
         <div class="mb-3">
             <label class="form-label mb-1">Takip Eden</label>
-            <div class="d-flex gap-2">
-                <input class="form-control form-control-sm takip-eden-input" value="@(Model.TakipEden ?? "")" />
-                <button type="button" class="btn btn-sm btn-primary btn-assign" data-id="@Model.Id">Kaydet</button>
-            </div>
-            <div class="small text-muted assign-msg mt-1"></div>
+
+            @if (User.IsInRole("Admin"))
+            {
+                <div class="d-flex gap-2">
+                    <input class="form-control form-control-sm takip-eden-input" value="@(Model.TakipEden ?? "")" />
+                    <button type="button" class="btn btn-sm btn-primary btn-assign" data-id="@Model.Id">Kaydet</button>
+                </div>
+                <div class="small text-muted assign-msg mt-1"></div>
+            }
+            else
+            {
+                <div class="small">
+                    <span class="fw-semibold">@(string.IsNullOrWhiteSpace(Model.TakipEden) ? "-" : Model.TakipEden)</span>
+                </div>
+            }
         </div>
 
         <div class="small text-muted">
