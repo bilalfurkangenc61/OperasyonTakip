@@ -341,14 +341,14 @@
         </div>
     </div>
 
-    <!-- Müşteriler Tablosu -->
+    <!-- Müşteriler Tablosu (AJAX YOK) -->
     <div class="card shadow-sm">
         <div class="card-body p-0">
             <div class="table-responsive">
                 <table id="musteriTable" class="table table-striped table-hover table-bordered mb-0">
                     <thead class="table-secondary">
                         <tr>
-                            <th>ID</th>
+                            <th style="display:none;">ID</th>
                             <th>Firma</th>
                             <th>Yetkili</th>
                             <th>Telefon</th>
@@ -361,7 +361,47 @@
                             <th width="100">İşlem</th>
                         </tr>
                     </thead>
-                    <tbody></tbody>
+                    <tbody>
+                        @foreach (var m in (Model.Musteriler ?? new()).OrderByDescending(x => x.KayitTarihi ?? DateTime.MinValue))
+                        {
+                            var durum = (m.Durum ?? "").Trim();
+                            var durumCls =
+                            string.Equals(durum, "Aktif", StringComparison.OrdinalIgnoreCase) ? "bg-success" :
+                            string.Equals(durum, "Pasif", StringComparison.OrdinalIgnoreCase) ? "bg-danger" :
+                            string.Equals(durum, "Beklemede", StringComparison.OrdinalIgnoreCase) ? "bg-warning text-dark" :
+                            "bg-secondary";
+
+                            <tr>
+                                <td style="display:none;">@m.MusteriID</td>
+                                <td>@m.Firma</td>
+                                <td>@m.FirmaYetkilisi</td>
+                                <td>@m.Telefon</td>
+                                <td>
+                                    @if (!string.IsNullOrWhiteSpace(m.SiteUrl))
+                                    {
+                                        <a href="@m.SiteUrl" target="_blank" class="text-decoration-none site-link">Site</a>
+                                    }
+                                </td>
+                                <td><span class="badge bg-info">@m.Teknoloji</span></td>
+                                <td><span class="badge @durumCls">@durum</span></td>
+                                <td>@m.TalepSahibi</td>
+                                <td>@(m.KayitTarihi.HasValue? m.KayitTarihi.Value.ToString("dd.MM.yyyy") : "-")</td>
+                                <td>
+                                    @{
+                                        var aciklama = m.Aciklama ?? "";
+                                        var shortText = aciklama.Length > 50 ? aciklama.Substring(0, 50) + "..." : aciklama;
+                                    }
+                                    <span class="text-truncate d-inline-block" style="max-width:200px;" title="@aciklama">@shortText</span>
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <button type="button" class="btn btn-outline-warning edit-btn" data-id="@m.MusteriID">Düzenle</button>
+                                        <button type="button" class="btn btn-outline-danger delete-btn" data-id="@m.MusteriID">Sil</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
                 </table>
             </div>
         </div>
@@ -466,45 +506,10 @@
 
     <script>
         $(document).ready(function () {
-            function escapeHtml(value) {
-                return String(value ?? '')
-                    .replace(/&/g, '&amp;')
-                    .replace(/</g, '&lt;')
-                    .replace(/>/g, '&gt;')
-                    .replace(/"/g, '&quot;')
-                    .replace(/'/g, '&#39;');
-            }
-
-            function fillSelect($select, items, emptyText) {
-                const current = $select.val() ?? '';
-                const emptyLabel = emptyText ?? 'Tümü';
-
-                $select.empty().append(`<option value="">${escapeHtml(emptyLabel)}</option>`);
-                (items ?? []).forEach(function (x) {
-                    const val = escapeHtml(x);
-                    $select.append(`<option value="${val}">${val}</option>`);
-                });
-                $select.val(current);
-            }
-
-            function loadFilters() {
-                fetch('/Musteri/Filters')
-                    .then(r => r.json())
-                    .then(d => {
-                        fillSelect($('#filterTeknoloji'), d.teknolojiler, 'Tümü');
-                        fillSelect($('#filterTalep'), d.talepSahipleri, 'Tümü');
-                        fillSelect($('#filterDurum'), d.durumlar, 'Tümü');
-                        fillSelect($('#editDurum'), d.durumlar, 'Seçiniz');
-                    });
-            }
-
             const table = $('#musteriTable').DataTable({
-                processing: true,
-                serverSide: true,
                 searching: true,
                 order: [[8, 'desc']],
                 responsive: false,
-                deferRender: true,
                 pageLength: 25,
                 lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]],
                 dom: "<'row mb-2'<'col-12 col-md-6'B><'col-12 col-md-6'f>>" +
@@ -523,78 +528,7 @@
                     search: "Firma Ara:",
                     searchPlaceholder: "Firma adı yazın...",
                     url: "https://cdn.datatables.net/plug-ins/1.13.7/i18n/tr.json"
-                },
-                ajax: {
-                    url: '/Musteri/Data',
-                    type: 'GET',
-                    data: function (d) {
-                        d.firma = d.search?.value ?? '';
-                        d.durum = $('#filterDurum').val();
-                        d.teknoloji = $('#filterTeknoloji').val();
-                        d.talepSahibi = $('#filterTalep').val();
-                        d.minDate = $('#minDate').val();
-                        d.maxDate = $('#maxDate').val();
-                    }
-                },
-                columns: [
-                    { data: 'musteriID', visible: false },
-                    { data: 'firma' },
-                    { data: 'firmaYetkilisi' },
-                    { data: 'telefon' },
-                    {
-                        data: 'siteUrl',
-                        orderable: false,
-                        render: function (data) {
-                            if (!data) return '';
-                            const url = escapeHtml(data);
-                            return `<a href="${url}" target="_blank" class="text-decoration-none site-link">Site</a>`;
-                        }
-                    },
-                    {
-                        data: 'teknoloji',
-                        render: function (data) {
-                            return `<span class="badge bg-info">${escapeHtml(data)}</span>`;
-                        }
-                    },
-                    {
-                        data: 'durum',
-                        render: function (data) {
-                            const v = String(data ?? '');
-                            const cls =
-                                v === 'Aktif' ? 'bg-success' :
-                                v === 'Pasif' ? 'bg-danger' :
-                                v === 'Beklemede' ? 'bg-warning' : 'bg-secondary';
-                            return `<span class="badge ${cls}">${escapeHtml(v)}</span>`;
-                        }
-                    },
-                    { data: 'talepSahibi' },
-                    { data: 'kayitTarihiText' },
-                    {
-                        data: 'aciklama',
-                        render: function (data) {
-                            const t = escapeHtml(data);
-                            return `<span class="text-truncate d-inline-block" style="max-width:200px;" title="${t}">${t}</span>`;
-                        }
-                    },
-                    {
-                        data: null,
-                        orderable: false,
-                        searchable: false,
-                        render: function (row) {
-                            return `
-                                <div class="btn-group btn-group-sm">
-                                    <button type="button" class="btn btn-outline-warning edit-btn" data-id="${row.musteriID}">Düzenle</button>
-                                    <button type="button" class="btn btn-outline-danger delete-btn" data-id="${row.musteriID}">Sil</button>
-                                </div>`;
-                        }
-                    }
-                ]
-            });
-
-            loadFilters();
-
-            $('#filterDurum, #filterTeknoloji, #filterTalep').on('change', function () {
-                table.ajax.reload(null, true);
+                }
             });
 
             $(document).on('click', 'a.site-link', function (e) { e.stopPropagation(); });
@@ -648,7 +582,6 @@
             }
         });
 
-        // Jira Durumu (seçili ay)
         new Chart(document.getElementById('jiraStatusChart'), {
             type: 'doughnut',
             data: {
@@ -666,7 +599,6 @@
             }
         });
 
-        // Ticket Durumu (seçili ay)
         new Chart(document.getElementById('ticketStatusChart'), {
             type: 'bar',
             data: {

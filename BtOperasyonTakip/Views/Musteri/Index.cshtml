@@ -50,29 +50,63 @@
 <div class="container-fluid mt-4">
     <h2 class="text-primary mb-3">Müşteriler</h2>
 
-    <!-- FİLTRE -->
+    <!-- FİLTRE / ARAMA (SERVER-SIDE, AJAX YOK) -->
     <div class="card shadow-sm mb-3">
         <div class="card-body">
-            <div class="row g-3 align-items-end">
+            @{
+                var search = (ViewData["Search"] as string) ?? "";
+                var selectedDurum = (ViewData["SelectedDurum"] as string) ?? "";
+                var selectedTeknoloji = (ViewData["SelectedTeknoloji"] as string) ?? "";
+                var selectedTalepSahibi = (ViewData["SelectedTalepSahibi"] as string) ?? "";
+
+                var currentPage = Convert.ToInt32(ViewData["Page"] ?? 1);
+                var pageSize = Convert.ToInt32(ViewData["PageSize"] ?? 25);
+                var totalCount = Convert.ToInt32(ViewData["TotalCount"] ?? 0);
+                var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+                if (totalPages < 1) totalPages = 1;
+            }
+
+            <form method="get" action="@Url.Action("Index", "Musteri")">
+                <input type="hidden" name="page" value="1" />
+                <input type="hidden" name="pageSize" value="@pageSize" />
+
+                <div class="row g-3 align-items-end">
+
+                    <div class="col-md-3">
+                        <label class="form-label">Firma Ara</label>
+                        <input id="filterSearch" name="search" value="@search" class="form-control" placeholder="Firma adı yazın..." />
+                    </div>
 
                 <div class="col-md-3">
                     <label class="form-label">Durum</label>
-                    <select id="filterDurum" class="form-select">
+                    <select id="filterDurum" name="durum" class="form-select">
                         <option value="">Tümü</option>
+                        @foreach (var d in (ViewData["Durumlar"] as IEnumerable<string> ?? Enumerable.Empty<string>()))
+                        {
+                            <option value="@d" selected="@(string.Equals(d, selectedDurum, StringComparison.OrdinalIgnoreCase))">@d</option>
+                        }
                     </select>
                 </div>
 
                 <div class="col-md-3">
                     <label class="form-label">Teknoloji</label>
-                    <select id="filterTeknoloji" class="form-select">
+                    <select id="filterTeknoloji" name="teknoloji" class="form-select">
                         <option value="">Tümü</option>
+                        @foreach (var t in (ViewData["Teknolojiler"] as IEnumerable<string> ?? Enumerable.Empty<string>()))
+                        {
+                            <option value="@t" selected="@(string.Equals(t, selectedTeknoloji, StringComparison.OrdinalIgnoreCase))">@t</option>
+                        }
                     </select>
                 </div>
 
                 <div class="col-md-3">
                     <label class="form-label">Talep Sahibi</label>
-                    <select id="filterTalep" class="form-select">
+                    <select id="filterTalep" name="talepSahibi" class="form-select">
                         <option value="">Tümü</option>
+                        @foreach (var ts in (ViewData["TalepSahipleri"] as IEnumerable<string> ?? Enumerable.Empty<string>()))
+                        {
+                            <option value="@ts" selected="@(string.Equals(ts, selectedTalepSahibi, StringComparison.OrdinalIgnoreCase))">@ts</option>
+                        }
                     </select>
                 </div>
 
@@ -87,18 +121,24 @@
                     </button>
                 </div>
 
-            </div>
+                    <div class="col-md-2 d-grid">
+                        <button type="submit" class="btn btn-primary">Filtrele</button>
+                    </div>
+
+                </div>
+            </form>
+
         </div>
     </div>
 
-    <!-- TABLO -->
+    <!-- TABLO (AJAX YOK) -->
     <div class="card shadow-sm">
         <div class="card-body p-0">
             <div class="table-responsive">
                 <table id="musteriTable" class="table table-striped table-hover table-bordered mb-0">
                     <thead class="table-secondary">
                         <tr>
-                            <th>ID</th>
+                            <th style="display:none;">ID</th>
                             <th>Firma</th>
                             <th>Yetkili</th>
                             <th>Telefon</th>
@@ -112,7 +152,57 @@
                             <th width="100">İşlem</th>
                         </tr>
                     </thead>
-                    <tbody></tbody>
+                    <tbody>
+                        @foreach (var m in (Model ?? Enumerable.Empty<BtOperasyonTakip.Models.Musteri>())
+                                                .OrderByDescending(x => x.KayitTarihi ?? DateTime.MinValue)
+                                                .ThenByDescending(x => x.MusteriID))
+                        {
+                            var durum = (m.Durum ?? "").Trim();
+                            var durumCls =
+                            string.Equals(durum, "Aktif", StringComparison.OrdinalIgnoreCase) ? "bg-success" :
+                            string.Equals(durum, "Pasif", StringComparison.OrdinalIgnoreCase) ? "bg-danger" :
+                            string.Equals(durum, "Beklemede", StringComparison.OrdinalIgnoreCase) ? "bg-warning text-dark" :
+                            "bg-secondary";
+
+                            var kaynak = (m.Kaynak ?? "").Trim();
+                            var aciklama = m.Aciklama ?? "";
+                            var aciklamaShort = aciklama.Length > 80 ? aciklama.Substring(0, 80) + "..." : aciklama;
+
+                            <tr>
+                                <td style="display:none;">@m.MusteriID</td>
+                                <td>@m.Firma</td>
+                                <td>@m.FirmaYetkilisi</td>
+                                <td>@m.Telefon</td>
+                                <td>
+                                    @if (!string.IsNullOrWhiteSpace(m.SiteUrl))
+                                    {
+                                        <a href="@m.SiteUrl" target="_blank" class="text-decoration-none site-link">🔗 Site</a>
+                                    }
+                                </td>
+                                <td>
+                                    @if (!string.IsNullOrWhiteSpace(m.Teknoloji))
+                                    {
+                                        <span class="badge bg-info">@m.Teknoloji</span>
+                                    }
+                                </td>
+                                <td><span class="badge @durumCls">@durum</span></td>
+                                <td>@m.TalepSahibi</td>
+                                <td>@(string.IsNullOrWhiteSpace(kaynak) ? "-" : kaynak)</td>
+                                <td>@(m.KayitTarihi.HasValue? m.KayitTarihi.Value.ToString("dd.MM.yyyy") : "-")</td>
+                                <td>
+                                    <span class="text-truncate d-inline-block" style="max-width:200px;" title="@aciklama">
+                                        @aciklamaShort
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <button type="button" class="btn btn-outline-warning edit-btn" data-id="@m.MusteriID">✏️</button>
+                                        <button type="button" class="btn btn-outline-danger delete-btn" data-id="@m.MusteriID">❌</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
                 </table>
             </div>
         </div>
@@ -120,6 +210,58 @@
 
     <div id="selectedInfo" class="alert alert-info mt-3" style="display:none;"></div>
     <div id="detayContainer" class="mt-3"></div>
+
+    <nav class="mt-3" aria-label="Sayfalama">
+        <ul class="pagination pagination-sm mb-0 flex-wrap">
+            <li class="page-item @(currentPage <= 1 ? "disabled" : "")">
+                <a class="page-link" href="@Url.Action("Index", "Musteri", new { page = currentPage - 1, pageSize, search, durum = selectedDurum, teknoloji = selectedTeknoloji, talepSahibi = selectedTalepSahibi })">Önceki</a>
+            </li>
+
+            @{
+                var window = 2;
+                var startPage = Math.Max(1, currentPage - window);
+                var endPage = Math.Min(totalPages, currentPage + window);
+
+                if (startPage > 1)
+                {
+                    <li class="page-item @(currentPage == 1 ? "active" : "")">
+                        <a class="page-link" href="@Url.Action("Index", "Musteri", new { page = 1, pageSize, search, durum = selectedDurum, teknoloji = selectedTeknoloji, talepSahibi = selectedTalepSahibi })">1</a>
+                    </li>
+
+                    if (startPage > 2)
+                    {
+                        <li class="page-item disabled"><span class="page-link">…</span></li>
+                    }
+                }
+
+                for (var p = startPage; p <= endPage; p++)
+                {
+                    <li class="page-item @(p == currentPage ? "active" : "")">
+                        <a class="page-link" href="@Url.Action("Index", "Musteri", new { page = p, pageSize, search, durum = selectedDurum, teknoloji = selectedTeknoloji, talepSahibi = selectedTalepSahibi })">@p</a>
+                    </li>
+                }
+
+                if (endPage < totalPages)
+                {
+                    if (endPage < totalPages - 1)
+                    {
+                        <li class="page-item disabled"><span class="page-link">…</span></li>
+                    }
+
+                    <li class="page-item @(currentPage == totalPages ? "active" : "")">
+                        <a class="page-link" href="@Url.Action("Index", "Musteri", new { page = totalPages, pageSize, search, durum = selectedDurum, teknoloji = selectedTeknoloji, talepSahibi = selectedTalepSahibi })">@totalPages</a>
+                    </li>
+                }
+            }
+
+            <li class="page-item disabled">
+                <span class="page-link">Sayfa @currentPage / @totalPages (Toplam: @totalCount)</span>
+            </li>
+            <li class="page-item @(currentPage >= totalPages ? "disabled" : "")">
+                <a class="page-link" href="@Url.Action("Index", "Musteri", new { page = currentPage + 1, pageSize, search, durum = selectedDurum, teknoloji = selectedTeknoloji, talepSahibi = selectedTalepSahibi })">Sonraki</a>
+            </li>
+        </ul>
+    </nav>
 </div>
 
 <!-- MODAL -->
@@ -168,6 +310,10 @@
                             <label class="form-label">Durum *</label>
                             <select id="editDurum" name="Durum" class="form-select" required>
                                 <option value="">Seçiniz</option>
+                                @foreach (var d in (ViewData["Durumlar"] as IEnumerable<string> ?? Enumerable.Empty<string>()))
+                                {
+                                    <option value="@d">@d</option>
+                                }
                             </select>
                         </div>
 
@@ -209,122 +355,23 @@
                     .replace(/'/g, '&#39;');
             }
 
-            function fillSelect($select, items, emptyText) {
-                const current = $select.val() ?? '';
-                const emptyLabel = emptyText ?? 'Tümü';
-
-                $select.empty().append(`<option value="">${escapeHtml(emptyLabel)}</option>`);
-
-                (items ?? []).forEach(function (x) {
-                    const val = escapeHtml(x);
-                    $select.append(`<option value="${val}">${val}</option>`);
-                });
-
-                $select.val(current);
-            }
-
-            function loadFilters() {
-                fetch('/Musteri/Filters')
-                    .then(r => r.json())
-                    .then(d => {
-                        fillSelect($('#filterTeknoloji'), d.teknolojiler, 'Tümü');
-                        fillSelect($('#filterTalep'), d.talepSahipleri, 'Tümü');
-                        fillSelect($('#filterDurum'), d.durumlar, 'Tümü');
-                        fillSelect($('#editDurum'), d.durumlar, 'Seçiniz');
-                    });
-            }
-
             const table = $('#musteriTable').DataTable({
-                processing: true,
-                serverSide: true,
-                searching: true,
-                order: [[9, 'desc']], // Kayit Tarihi kolonu index 9
+                searching: false,
+                order: [[9, 'desc']],
                 responsive: false,
-                deferRender: true,
                 pageLength: 25,
                 lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]],
                 language: {
                     search: "Firma Ara:",
                     searchPlaceholder: "Firma adı yazın..."
                 },
-                ajax: {
-                    url: '/Musteri/Data',
-                    type: 'GET',
-                    data: function (d) {
-                        d.firma = d.search?.value ?? '';
-
-                        d.durum = $('#filterDurum').val();
-                        d.teknoloji = $('#filterTeknoloji').val();
-                        d.talepSahibi = $('#filterTalep').val();
-                        d.minDate = $('#minDate').val();
-                        d.maxDate = $('#maxDate').val();
-                    }
-                },
-                columns: [
-                    { data: 'musteriID', visible: false },
-                    { data: 'firma' },
-                    { data: 'firmaYetkilisi' },
-                    { data: 'telefon' },
-                    {
-                        data: 'siteUrl',
-                        orderable: false,
-                        render: function (data) {
-                            if (!data) return '';
-                            const url = escapeHtml(data);
-                            return `<a href="${url}" target="_blank" class="text-decoration-none site-link">🔗 Site</a>`;
-                        }
-                    },
-                    {
-                        data: 'teknoloji',
-                        render: function (data) {
-                            return `<span class="badge bg-info">${escapeHtml(data)}</span>`;
-                        }
-                    },
-                    {
-                        data: 'durum',
-                        render: function (data) {
-                            const v = String(data ?? '');
-                            const cls =
-                                v === 'Aktif' ? 'bg-success' :
-                                    v === 'Pasif' ? 'bg-danger' :
-                                        v === 'Beklemede' ? 'bg-warning' : 'bg-secondary';
-                            return `<span class="badge ${cls}">${escapeHtml(v)}</span>`;
-                        }
-                    },
-                    { data: 'talepSahibi' },
-                    {
-                        data: 'kaynak',
-                        render: function (data) {
-                            const v = String(data ?? '').trim();
-                            return v ? escapeHtml(v) : '-';
-                        }
-                    },
-                    { data: 'kayitTarihiText' },
-                    {
-                        data: 'aciklama',
-                        render: function (data) {
-                            const t = escapeHtml(data);
-                            return `<span class="text-truncate d-inline-block" style="max-width:200px;" title="${t}">${t}</span>`;
-                        }
-                    },
-                    {
-                        data: null,
-                        orderable: false,
-                        searchable: false,
-                        render: function (row) {
-                            return `
-                                <div class="btn-group btn-group-sm">
-                                    <button type="button" class="btn btn-outline-warning edit-btn" data-id="${row.musteriID}">✏️</button>
-                                    <button type="button" class="btn btn-outline-danger delete-btn" data-id="${row.musteriID}">❌</button>
-                                </div>`;
-                        }
-                    }
+                columnDefs: [
+                    { targets: 0, visible: false, searchable: false },
+                    { targets: 4, orderable: false },
+                    { targets: 11, orderable: false, searchable: false }
                 ]
             });
 
-            loadFilters();
-
-            // Varsayılan ay: içinde bulunduğumuz ay
             if (!$('#exportMonth').val()) {
                 const now = new Date();
                 const mm = String(now.getMonth() + 1).padStart(2, '0');
@@ -343,7 +390,7 @@
             });
 
             $('#filterDurum, #filterTeknoloji, #filterTalep').on('change', function () {
-                table.ajax.reload(null, true);
+                $(this).closest('form').trigger('submit');
             });
 
             $(document).on('click', 'a.site-link', function (e) {
@@ -353,15 +400,15 @@
             $(document).on('click', '#musteriTable tbody tr', function (e) {
                 if ($(e.target).closest('button').length) return;
 
-                const row = table.row(this).data();
-                if (!row) return;
+                const id = Number($(this).find('td:first').text() || 0);
+                const firma = $(this).find('td').eq(0 + 1).text();
 
-                const id = row.musteriID;
+                if (!id) return;
 
                 $('#musteriTable tr').removeClass('table-primary');
                 $(this).addClass('table-primary');
 
-                $('#selectedInfo').show().html(`<strong>Seçilen Müşteri:</strong> ${escapeHtml(row.firma)}`);
+                $('#selectedInfo').show().html(`<strong>Seçilen Müşteri:</strong> ${escapeHtml(firma)}`);
 
                 fetch(`/Detay/GetDetaylar?musteriId=${id}`)
                     .then(r => r.text())
@@ -406,9 +453,7 @@
                     .then(d => {
                         alert(d.message);
                         if (d.success) {
-                            $('#editMusteriModal').modal('hide');
-                            table.ajax.reload(null, false);
-                            loadFilters();
+                            window.location.reload();
                         }
                     });
             });
@@ -426,8 +471,7 @@
                     .then(d => {
                         alert(d.message);
                         if (d.success) {
-                            table.ajax.reload(null, false);
-                            loadFilters();
+                            window.location.reload();
                         }
                     });
             });

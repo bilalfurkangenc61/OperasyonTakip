@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace BtOperasyonTakip.Controllers;
 
-[Authorize(Roles = "Operasyon")]
+[Authorize(Roles = "Operasyon,Admin")]
 public sealed class MusteriController : Controller
 {
     private readonly AppDbContext _context;
@@ -19,9 +19,84 @@ public sealed class MusteriController : Controller
     }
 
     [HttpGet]
-    public IActionResult Index()
+    public async Task<IActionResult> Index(
+        int page = 1,
+        int pageSize = 25,
+        string? search = null,
+        string? durum = null,
+        string? teknoloji = null,
+        string? talepSahibi = null)
     {
-        return View();
+        if (page < 1) page = 1;
+        if (pageSize < 1) pageSize = 25;
+        if (pageSize > 100) pageSize = 100;
+
+        IQueryable<Musteri> query = _context.Musteriler.AsNoTracking();
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim();
+            query = query.Where(x => x.Firma != null && x.Firma.Contains(term));
+        }
+
+        if (!string.IsNullOrWhiteSpace(durum))
+        {
+            var d = durum.Trim();
+            query = query.Where(x => x.Durum == d);
+        }
+
+        if (!string.IsNullOrWhiteSpace(teknoloji))
+        {
+            var t = teknoloji.Trim();
+            query = query.Where(x => x.Teknoloji == t);
+        }
+
+        if (!string.IsNullOrWhiteSpace(talepSahibi))
+        {
+            var ts = talepSahibi.Trim();
+            query = query.Where(x => x.TalepSahibi == ts);
+        }
+
+        var totalCount = await query.CountAsync();
+
+        var model = await query
+            .OrderByDescending(x => x.KayitTarihi)
+            .ThenByDescending(x => x.MusteriID)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        ViewData["Page"] = page;
+        ViewData["PageSize"] = pageSize;
+        ViewData["TotalCount"] = totalCount;
+        ViewData["Search"] = search;
+        ViewData["SelectedDurum"] = durum;
+        ViewData["SelectedTeknoloji"] = teknoloji;
+        ViewData["SelectedTalepSahibi"] = talepSahibi;
+
+        // Filtre dropdown'ları için (sadece Parametreler tablosundan)
+        ViewData["Durumlar"] = await _context.Parametreler
+            .AsNoTracking()
+            .Where(p => p.Tur == "Durum" && p.ParAdi != null && p.ParAdi != "")
+            .OrderBy(p => p.ParAdi)
+            .Select(p => p.ParAdi!)
+            .ToListAsync();
+
+        ViewData["Teknolojiler"] = await _context.Parametreler
+            .AsNoTracking()
+            .Where(p => p.Tur == "Teknoloji" && p.ParAdi != null && p.ParAdi != "")
+            .OrderBy(p => p.ParAdi)
+            .Select(p => p.ParAdi!)
+            .ToListAsync();
+
+        ViewData["TalepSahipleri"] = await _context.Parametreler
+            .AsNoTracking()
+            .Where(p => p.Tur == "TalepEden" && p.ParAdi != null && p.ParAdi != "")
+            .OrderBy(p => p.ParAdi)
+            .Select(p => p.ParAdi!)
+            .ToListAsync();
+
+        return View(model);
     }
 
     [HttpGet("/Musteri/Filters")]
@@ -56,6 +131,7 @@ public sealed class MusteriController : Controller
         });
     }
 
+    // AJAX'SIZ SAYFADA KULLANILMIYOR: İsterseniz kaldırabilirsiniz.
     [HttpGet("/Musteri/Data")]
     public async Task<IActionResult> Data(
         int draw,
@@ -121,6 +197,7 @@ public sealed class MusteriController : Controller
                 teknoloji = x.Teknoloji,
                 durum = x.Durum,
                 talepSahibi = x.TalepSahibi,
+                kaynak = x.Kaynak,
                 kayitTarihiText = x.KayitTarihi.HasValue ? x.KayitTarihi.Value.ToString("dd.MM.yyyy") : "-",
                 aciklama = x.Aciklama
             })
@@ -135,7 +212,6 @@ public sealed class MusteriController : Controller
         });
     }
 
-    // SEÇİLİ AYIN TÜM MÜŞTERİLERİNİ EXCEL'E UYUMLU TSV (Unicode) OLARAK İNDİRİR
     [HttpGet("/Musteri/ExportExcelByMonth")]
     public async Task<IActionResult> ExportExcelByMonth(string? month)
     {
@@ -170,7 +246,7 @@ public sealed class MusteriController : Controller
             })
             .ToListAsync();
 
-        const char sep = '\t'; // TAB => Excel kolonlara düzgün böler
+        const char sep = '\t';
 
         static string NormalizeCell(string? s)
         {
@@ -179,11 +255,9 @@ public sealed class MusteriController : Controller
                 .Replace("\r", "\n")
                 .Replace("\n", " ");
 
-            // Excel formula injection riskine karşı
             if (v.Length > 0 && (v[0] == '=' || v[0] == '+' || v[0] == '-' || v[0] == '@'))
                 v = "'" + v;
 
-            // TSV'de tab karakteri hücreyi böler; içeride varsa boşluğa çevir
             v = v.Replace("\t", " ");
             return v;
         }
@@ -217,28 +291,20 @@ public sealed class MusteriController : Controller
               .Append("\r\n");
         }
 
-        // Excel için çok stabil: UTF-16LE (Unicode) + BOM
-        var unicode = new UnicodeEncoding(bigEndian: false, byteOrderMark: true);
-        var bytes = unicode.GetBytes(sb.ToString());
-
-        var fileName = $"Musteriler_{start:yyyy_MM}.xls";
-        return File(bytes, "application/vnd.ms-excel", fileName);
+        var bytes = Encoding.Unicode.GetPreamble().Concat(Encoding.Unicode.GetBytes(sb.ToString())).ToArray();
+        return File(bytes, "text/tab-separated-values", $"Musteriler_{month}.xls");
     }
 
-    private static bool TryParseTrDate(string? input, out DateTime result)
+    private static bool TryParseTrDate(string? s, out DateTime dt)
     {
-        result = default;
-
-        if (string.IsNullOrWhiteSpace(input))
-        {
-            return false;
-        }
+        dt = default;
+        if (string.IsNullOrWhiteSpace(s)) return false;
 
         return DateTime.TryParseExact(
-            input.Trim(),
-            "dd.MM.yyyy",
-            CultureInfo.GetCultureInfo("tr-TR"),
+            s.Trim(),
+            new[] { "dd.MM.yyyy", "d.M.yyyy", "yyyy-MM-dd" },
+            new CultureInfo("tr-TR"),
             DateTimeStyles.None,
-            out result);
+            out dt);
     }
 }
