@@ -145,6 +145,7 @@
                             <th>Site URL</th>
                             <th>Teknoloji</th>
                             <th>Durum</th>
+                            <th>Durum Değ. Tarihi</th>
                             <th>Talep Sahibi</th>
                             <th>Kaynak</th>
                             <th>Kayıt Tarihi</th>
@@ -157,6 +158,17 @@
                                                 .OrderByDescending(x => x.KayitTarihi ?? DateTime.MinValue)
                                                 .ThenByDescending(x => x.MusteriID))
                         {
+                            var isDokumanDurumu = string.Equals((m.Durum ?? "").Trim(), "Döküman Gönderildi", StringComparison.OrdinalIgnoreCase);
+                            var kontrolBaslangic = m.DokumanKontrolBaslangicTarihi ?? m.DurumDegisiklikTarihi ?? m.KayitTarihi;
+                            var ucGunGecti = isDokumanDurumu && kontrolBaslangic.HasValue && (DateTime.Now - kontrolBaslangic.Value).TotalDays >= 3;
+                            var satirCls = "";
+                            if (isDokumanDurumu)
+                            {
+                                if (m.DokumanGonderimSayisi >= 2) satirCls = "table-warning";
+                                else if (m.DokumanGonderildiMi == true) satirCls = "table-success";
+                                else if (ucGunGecti) satirCls = "table-danger";
+                            }
+
                             var durum = (m.Durum ?? "").Trim();
                             var durumCls =
                             string.Equals(durum, "Aktif", StringComparison.OrdinalIgnoreCase) ? "bg-success" :
@@ -168,7 +180,7 @@
                             var aciklama = m.Aciklama ?? "";
                             var aciklamaShort = aciklama.Length > 80 ? aciklama.Substring(0, 80) + "..." : aciklama;
 
-                            <tr>
+                            <tr class="@satirCls">
                                 <td style="display:none;">@m.MusteriID</td>
                                 <td>@m.Firma</td>
                                 <td>@m.FirmaYetkilisi</td>
@@ -186,6 +198,7 @@
                                     }
                                 </td>
                                 <td><span class="badge @durumCls">@durum</span></td>
+                                <td>@(m.DurumDegisiklikTarihi.HasValue ? m.DurumDegisiklikTarihi.Value.ToString("dd.MM.yyyy") : "-")</td>
                                 <td>@m.TalepSahibi</td>
                                 <td>@(string.IsNullOrWhiteSpace(kaynak) ? "-" : kaynak)</td>
                                 <td>@(m.KayitTarihi.HasValue? m.KayitTarihi.Value.ToString("dd.MM.yyyy") : "-")</td>
@@ -196,6 +209,18 @@
                                 </td>
                                 <td>
                                     <div class="btn-group btn-group-sm">
+                                        @if (isDokumanDurumu)
+                                        {
+                                            if (m.DokumanGonderimSayisi >= 2)
+                                            {
+                                                <button type="button" class="btn btn-outline-primary satis-btn" data-id="@m.MusteriID">Satışa Gönder</button>
+                                            }
+                                            else
+                                            {
+                                                <button type="button" class="btn btn-outline-success dokuman-btn" data-id="@m.MusteriID" data-gonderildi="true">Gönderildi</button>
+                                                <button type="button" class="btn btn-outline-secondary dokuman-btn" data-id="@m.MusteriID" data-gonderildi="false">Gönderilmedi</button>
+                                            }
+                                        }
                                         <button type="button" class="btn btn-outline-warning edit-btn" data-id="@m.MusteriID">✏️</button>
                                         <button type="button" class="btn btn-outline-danger delete-btn" data-id="@m.MusteriID">❌</button>
                                     </div>
@@ -370,6 +395,45 @@
                     { targets: 4, orderable: false },
                     { targets: 11, orderable: false, searchable: false }
                 ]
+            });
+
+            $(document).on('click', '.dokuman-btn', function (e) {
+                e.stopPropagation();
+                const id = Number($(this).data('id'));
+                const gonderildi = String($(this).data('gonderildi')) === 'true';
+
+                const fd = new FormData();
+                fd.append('musteriId', id);
+                fd.append('gonderildi', gonderildi);
+
+                fetch('/Musteri/SetDokumanDurumu', { method: 'POST', body: fd })
+                    .then(r => r.json())
+                    .then(d => {
+                        if (!d.success) {
+                            alert(d.message || 'İşlem başarısız.');
+                            return;
+                        }
+                        window.location.reload();
+                    });
+            });
+
+            $(document).on('click', '.satis-btn', function (e) {
+                e.stopPropagation();
+                const id = Number($(this).data('id'));
+                if (!confirm('Satışa gönderilsin mi?')) return;
+
+                const fd = new FormData();
+                fd.append('musteriId', id);
+
+                fetch('/Musteri/SatisaGonder', { method: 'POST', body: fd })
+                    .then(r => r.json())
+                    .then(d => {
+                        if (!d.success) {
+                            alert(d.message || 'İşlem başarısız.');
+                            return;
+                        }
+                        window.location.reload();
+                    });
             });
 
             if (!$('#exportMonth').val()) {

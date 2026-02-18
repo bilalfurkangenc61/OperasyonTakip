@@ -466,10 +466,13 @@
 
         $(document).on("click", ".saha-canli-btn", async function () {
             const id = Number($(this).data("id"));
+            const canliOrtamId = (prompt("Canlı Ortam ID (zorunlu - not yerine yazılacak):", "") || "").trim();
+            if (!canliOrtamId) { alert("Canlı Ortam ID zorunlu."); return; }
+
             const not = (prompt("Canlı açılış notu (opsiyonel):", "") || "").trim();
 
             try {
-                const data = await postJson("@Url.Action("SahaCanliAcildi", "Ticket")", { id, not });
+                const data = await postJson("@Url.Action("SahaCanliAcildi", "Ticket")", { id, not, canliOrtamId });
                 alert(data?.message || "İşlem tamamlandı.");
                 if (data?.success) location.reload();
             } catch (e) {

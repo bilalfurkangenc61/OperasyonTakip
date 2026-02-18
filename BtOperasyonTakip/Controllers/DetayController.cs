@@ -39,7 +39,8 @@ namespace BtOperasyonTakip.Controllers
                 durum = musteri.Durum,
                 talepSahibi = musteri.TalepSahibi,
                 aciklama = musteri.Aciklama,
-                kayitTarihi = musteri.KayitTarihi?.ToString("yyyy-MM-dd")
+                kayitTarihi = musteri.KayitTarihi?.ToString("yyyy-MM-dd"),
+                durumDegisiklikTarihi = musteri.DurumDegisiklikTarihi?.ToString("yyyy-MM-dd")
             });
         }
 
@@ -57,6 +58,15 @@ namespace BtOperasyonTakip.Controllers
                     return NotFound($"Müşteri ID {musteri.MusteriID} bulunamadı");
                 }
 
+                var eskiDurum = (existingMusteri.Durum ?? string.Empty).Trim();
+                var yeniDurum = (musteri.Durum ?? string.Empty).Trim();
+                var durumDegisti = !string.Equals(eskiDurum, yeniDurum, StringComparison.OrdinalIgnoreCase);
+
+                if (durumDegisti && string.IsNullOrWhiteSpace(musteri.Aciklama))
+                {
+                    return Json(new { success = false, message = "Durum değiştirirken açıklama zorunludur." });
+                }
+
                 // Alanları güncelle
                 existingMusteri.Firma = musteri.Firma;
                 existingMusteri.FirmaYetkilisi = musteri.FirmaYetkilisi;
@@ -66,6 +76,21 @@ namespace BtOperasyonTakip.Controllers
                 existingMusteri.Durum = musteri.Durum;
                 existingMusteri.TalepSahibi = musteri.TalepSahibi;
                 existingMusteri.Aciklama = musteri.Aciklama;
+
+                if (durumDegisti)
+                {
+                    existingMusteri.DurumDegisiklikTarihi = DateTime.Now;
+
+                    _context.MusteriDurumGecmisleri.Add(new MusteriDurumGecmisi
+                    {
+                        MusteriID = existingMusteri.MusteriID,
+                        EskiDurum = eskiDurum,
+                        YeniDurum = yeniDurum,
+                        Aciklama = musteri.Aciklama!.Trim(),
+                        Tarih = existingMusteri.DurumDegisiklikTarihi.Value,
+                        DegistirenKullanici = User?.Identity?.Name
+                    });
+                }
 
                 _context.SaveChanges();
                 Console.WriteLine("✅ Müşteri güncellendi!");

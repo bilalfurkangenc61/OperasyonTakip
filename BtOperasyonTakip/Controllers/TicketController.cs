@@ -104,28 +104,52 @@ namespace BtOperasyonTakip.Controllers
 
             var firmaAdi = (ticket.FirmaAdi ?? string.Empty).Trim();
             var siteAdi = (ticket.MusteriWebSitesi ?? string.Empty).Trim();
+            var mail = (ticket.Mail ?? string.Empty).Trim();
 
-            if (!string.IsNullOrWhiteSpace(firmaAdi) && !string.IsNullOrWhiteSpace(siteAdi))
+            var tipKey = (ticket.MusteriTipi ?? string.Empty).Trim().ToLowerInvariant();
+            var firmaKey = firmaAdi.ToLowerInvariant();
+            var siteKey = siteAdi.ToLowerInvariant();
+            var mailKey = mail.ToLowerInvariant();
+
+            var acikAyniTipteTickets = _context.Tickets.Where(t =>
+                ((t.MusteriTipi ?? string.Empty).Trim().ToLower()) == tipKey &&
+                t.Durum != TicketDurumReddedildi &&
+                t.Durum != TicketDurumMusteriKaydedildi);
+
+            if (!string.IsNullOrWhiteSpace(firmaAdi))
             {
-                var firmaKey = firmaAdi.ToLowerInvariant();
-                var siteKey = siteAdi.ToLowerInvariant();
-
-                var aynisiVarMi = _context.Tickets.Any(t =>
-                    ((t.FirmaAdi ?? string.Empty).Trim().ToLower()) == firmaKey &&
-                    ((t.MusteriWebSitesi ?? string.Empty).Trim().ToLower()) == siteKey &&
-                    t.Durum != TicketDurumReddedildi &&
-                    t.Durum != TicketDurumMusteriKaydedildi);
-
-                if (aynisiVarMi)
-                {
-                    ModelState.AddModelError("", "Bu firma ve site için zaten açık bir ticket mevcut. Yeni ticket oluşturulmadı.");
-                    return View(ticket);
-                }
+                var firmaVar = acikAyniTipteTickets.Any(t => ((t.FirmaAdi ?? string.Empty).Trim().ToLower()) == firmaKey);
+                if (firmaVar)
+                    ModelState.AddModelError(nameof(ticket.FirmaAdi), "Bu firma adı ile aynı müşteri tipinde açık bir ticket zaten var.");
             }
+
+            if (!string.IsNullOrWhiteSpace(siteAdi))
+            {
+                var siteVar = acikAyniTipteTickets.Any(t => ((t.MusteriWebSitesi ?? string.Empty).Trim().ToLower()) == siteKey);
+                if (siteVar)
+                    ModelState.AddModelError(nameof(ticket.MusteriWebSitesi), "Bu web sitesi ile aynı müşteri tipinde açık bir ticket zaten var.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(mail))
+            {
+                var mailVar = acikAyniTipteTickets.Any(t => ((t.Mail ?? string.Empty).Trim().ToLower()) == mailKey);
+                if (mailVar)
+                    ModelState.AddModelError(nameof(ticket.Mail), "Bu mail adresi ile aynı müşteri tipinde açık bir ticket zaten var.");
+            }
+
+            if (!ModelState.IsValid)
+                return View(ticket);
 
             try
             {
                 var userId = int.TryParse(User.FindFirst("UserId")?.Value, out var id) ? id : 0;
+
+                if (!string.Equals(ticket.MusteriTipi, "Kurumsal", StringComparison.OrdinalIgnoreCase) &&
+                    !string.Equals(ticket.MusteriTipi, "Bireysel", StringComparison.OrdinalIgnoreCase))
+                {
+                    ModelState.AddModelError(nameof(ticket.MusteriTipi), "Müşteri tipi 'Kurumsal' veya 'Bireysel' olmalıdır.");
+                    return View(ticket);
+                }
 
                 ticket.OlusturanUserId = userId;
                 ticket.OlusturanKullaniciAdi = User.Identity?.Name ?? "Bilinmiyor";
@@ -318,6 +342,10 @@ namespace BtOperasyonTakip.Controllers
             if (request?.Id <= 0)
                 return Json(new { success = false, message = "Geçersiz Ticket ID!" });
 
+            var canliOrtamId = (request.CanliOrtamId ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(canliOrtamId))
+                return Json(new { success = false, message = "Canlı ortam ID girmek zorunludur." });
+
             var ticket = _context.Tickets.FirstOrDefault(t => t.Id == request.Id);
             if (ticket == null)
                 return Json(new { success = false, message = "Ticket bulunamadı!" });
@@ -330,7 +358,10 @@ namespace BtOperasyonTakip.Controllers
                 return Json(new { success = false, message = $"Ticket bu aşamada canlı açılışa uygun değil. Durum: {ticket.Durum}" });
 
             ticket.CanliAcildiTarihi = DateTime.UtcNow;
-            ticket.CanliNotu = string.IsNullOrWhiteSpace(request.Not) ? null : request.Not.Trim();
+            var not = (request.Not ?? string.Empty).Trim();
+            ticket.CanliNotu = string.IsNullOrWhiteSpace(not)
+                ? $"CanlıOrtamId: {canliOrtamId}"
+                : $"CanlıOrtamId: {canliOrtamId} | {not}";
 
             var firmaAdi = (ticket.FirmaAdi ?? string.Empty).Trim();
             var siteUrl = (ticket.MusteriWebSitesi ?? string.Empty).Trim();
@@ -342,8 +373,9 @@ namespace BtOperasyonTakip.Controllers
                 ((m.Firma ?? string.Empty).Trim().ToLower()) == firmaKey &&
                 ((m.SiteUrl ?? string.Empty).Trim().ToLower()) == siteKey);
 
-            var isKurumsal = User.IsInRole("KurumsalSaha");
-            var kaynak = isKurumsal ? "Kurumsal" : null;
+            var kaynak = string.Equals((ticket.MusteriTipi ?? string.Empty).Trim(), "Kurumsal", StringComparison.OrdinalIgnoreCase)
+                ? "Kurumsal"
+                : "Bireysel";
 
             Musteri musteri;
             if (mevcutMusteri != null)
@@ -358,8 +390,7 @@ namespace BtOperasyonTakip.Controllers
                 mevcutMusteri.Aciklama = ticket.Aciklama;
                 mevcutMusteri.KayitTarihi = DateTime.Now;
 
-                if (isKurumsal)
-                    mevcutMusteri.Kaynak = kaynak;
+                mevcutMusteri.Kaynak = kaynak;
 
                 musteri = mevcutMusteri;
                 _context.SaveChanges();
@@ -495,6 +526,7 @@ namespace BtOperasyonTakip.Controllers
         {
             public int Id { get; set; }
             public string? Not { get; set; }
+            public string? CanliOrtamId { get; set; }
         }
 
         public sealed class SahaRedRequest

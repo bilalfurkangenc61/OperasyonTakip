@@ -1,6 +1,5 @@
 ﻿using BtOperasyonTakip.Models;
 using Microsoft.EntityFrameworkCore;
-using static BtOperasyonTakip.Models.DashboardViewModel;
 
 namespace BtOperasyonTakip.Data
 {
@@ -9,6 +8,7 @@ namespace BtOperasyonTakip.Data
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
         public DbSet<Musteri> Musteriler => Set<Musteri>();
+        public DbSet<MusteriDurumGecmisi> MusteriDurumGecmisleri => Set<MusteriDurumGecmisi>();
         public DbSet<IletisimBilgileri> IletisimBilgileri => Set<IletisimBilgileri>();
         public DbSet<Detay> Detaylar => Set<Detay>();
         public DbSet<Parametre> Parametreler => Set<Parametre>();
@@ -21,5 +21,16 @@ namespace BtOperasyonTakip.Data
         public DbSet<Issue> Issues { get; set; }
 
         public DbSet<TicketAtamaLog> TicketAtamaLoglari { get; set; }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            base.OnModelCreating(modelBuilder);
+
+            modelBuilder.Entity<MusteriDurumGecmisi>()
+                .HasOne(x => x.Musteri)
+                .WithMany(x => x.DurumGecmisi)
+                .HasForeignKey(x => x.MusteriID)
+                .OnDelete(DeleteBehavior.Cascade);
+        }
     }
 }

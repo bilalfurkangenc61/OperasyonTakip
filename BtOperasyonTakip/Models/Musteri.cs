@@ -9,6 +9,10 @@ namespace BtOperasyonTakip.Models
         public string? SiteUrl { get; set; }
         public string? Teknoloji { get; set; }
         public string? Durum { get; set; }
+        public DateTime? DurumDegisiklikTarihi { get; set; }
+        public DateTime? DokumanKontrolBaslangicTarihi { get; set; }
+        public int DokumanGonderimSayisi { get; set; } = 0;
+        public bool? DokumanGonderildiMi { get; set; }
         public string? TalepSahibi { get; set; }
 
         [MaxLength(20, ErrorMessage = "Telefon numarası 20 karakterden uzun olamaz.")]
@@ -16,6 +20,7 @@ namespace BtOperasyonTakip.Models
 
         public string? Aciklama { get; set; }
         public ICollection<Detay>? Detaylar { get; set; }
+        public ICollection<MusteriDurumGecmisi>? DurumGecmisi { get; set; }
         public DateTime? KayitTarihi { get; set; } = DateTime.Now;
 
         public string? FirmaYetkilisi { get; set; }

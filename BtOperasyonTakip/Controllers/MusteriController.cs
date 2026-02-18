@@ -18,6 +18,52 @@ public sealed class MusteriController : Controller
         _context = context;
     }
 
+    [HttpPost("/Musteri/SetDokumanDurumu")]
+    public async Task<IActionResult> SetDokumanDurumu([FromForm] int musteriId, [FromForm] bool gonderildi)
+    {
+        var musteri = await _context.Musteriler.FirstOrDefaultAsync(x => x.MusteriID == musteriId);
+        if (musteri == null)
+            return Json(new { success = false, message = "Müşteri bulunamadı." });
+
+        if (!string.Equals((musteri.Durum ?? string.Empty).Trim(), "Döküman Gönderildi", StringComparison.OrdinalIgnoreCase))
+            return Json(new { success = false, message = "Bu işlem sadece 'Döküman Gönderildi' durumunda yapılabilir." });
+
+        musteri.DokumanGonderildiMi = gonderildi;
+
+        if (gonderildi)
+        {
+            musteri.DokumanGonderimSayisi += 1;
+            musteri.DurumDegisiklikTarihi = DateTime.Now;
+            musteri.DokumanKontrolBaslangicTarihi = musteri.DurumDegisiklikTarihi;
+        }
+        else
+        {
+            musteri.DokumanKontrolBaslangicTarihi ??= musteri.DurumDegisiklikTarihi ?? musteri.KayitTarihi;
+        }
+
+        await _context.SaveChangesAsync();
+        return Json(new { success = true });
+    }
+
+    [HttpPost("/Musteri/SatisaGonder")]
+    public async Task<IActionResult> SatisaGonder([FromForm] int musteriId)
+    {
+        var musteri = await _context.Musteriler.FirstOrDefaultAsync(x => x.MusteriID == musteriId);
+        if (musteri == null)
+            return Json(new { success = false, message = "Müşteri bulunamadı." });
+
+        if (musteri.DokumanGonderimSayisi < 2)
+            return Json(new { success = false, message = "Satışa gönder için doküman en az 2 kez gönderilmiş olmalı." });
+
+        musteri.Durum = "Satışa Gönderildi";
+        musteri.DurumDegisiklikTarihi = DateTime.Now;
+        musteri.DokumanKontrolBaslangicTarihi = musteri.DurumDegisiklikTarihi;
+        musteri.DokumanGonderildiMi = null;
+        await _context.SaveChangesAsync();
+
+        return Json(new { success = true });
+    }
+
     [HttpGet]
     public async Task<IActionResult> Index(
         int page = 1,
@@ -226,9 +272,9 @@ public sealed class MusteriController : Controller
 
         var rows = await _context.Musteriler
             .AsNoTracking()
-            .Where(x => x.KayitTarihi != null &&
-                        x.KayitTarihi.Value >= start &&
-                        x.KayitTarihi.Value < end)
+            .Where(x =>
+                (x.KayitTarihi != null && x.KayitTarihi.Value >= start && x.KayitTarihi.Value < end)
+                || (x.DurumDegisiklikTarihi != null && x.DurumDegisiklikTarihi.Value >= start && x.DurumDegisiklikTarihi.Value < end))
             .OrderByDescending(x => x.KayitTarihi)
             .ThenByDescending(x => x.MusteriID)
             .Select(x => new
@@ -242,6 +288,7 @@ public sealed class MusteriController : Controller
                 x.Durum,
                 x.TalepSahibi,
                 x.KayitTarihi,
+                x.DurumDegisiklikTarihi,
                 x.Aciklama
             })
             .ToListAsync();
@@ -271,6 +318,7 @@ public sealed class MusteriController : Controller
           .Append("SiteUrl").Append(sep)
           .Append("Teknoloji").Append(sep)
           .Append("Durum").Append(sep)
+          .Append("DurumDegisiklikTarihi").Append(sep)
           .Append("TalepSahibi").Append(sep)
           .Append("KayitTarihi").Append(sep)
           .Append("Aciklama")
@@ -285,6 +333,7 @@ public sealed class MusteriController : Controller
               .Append(NormalizeCell(r.SiteUrl)).Append(sep)
               .Append(NormalizeCell(r.Teknoloji)).Append(sep)
               .Append(NormalizeCell(r.Durum)).Append(sep)
+              .Append(NormalizeCell(r.DurumDegisiklikTarihi?.ToString("dd.MM.yyyy") ?? "-")).Append(sep)
               .Append(NormalizeCell(r.TalepSahibi)).Append(sep)
               .Append(NormalizeCell(r.KayitTarihi?.ToString("dd.MM.yyyy") ?? "-")).Append(sep)
               .Append(NormalizeCell(r.Aciklama))

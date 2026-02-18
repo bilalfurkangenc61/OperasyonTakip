@@ -121,11 +121,11 @@ namespace BtOperasyonTakip.Controllers
                 .Select(p => p.ParAdi!)
                 .ToList();
 
-            // Seçili ayda kayıt olan müşteriler
+            // Seçili ayda kayıt olan + seçili ayda durum değiştiren müşteriler
             var musterilerSeciliAy = musteriler
-                .Where(m => m.KayitTarihi.HasValue &&
-                            m.KayitTarihi.Value >= seciliAyBaslangic &&
-                            m.KayitTarihi.Value < seciliAyBitis)
+                .Where(m =>
+                    (m.KayitTarihi.HasValue && m.KayitTarihi.Value >= seciliAyBaslangic && m.KayitTarihi.Value < seciliAyBitis)
+                    || (m.DurumDegisiklikTarihi.HasValue && m.DurumDegisiklikTarihi.Value >= seciliAyBaslangic && m.DurumDegisiklikTarihi.Value < seciliAyBitis))
                 .ToList();
 
             // Seçili ay müşteri durum sayacı (db’de ne varsa)
